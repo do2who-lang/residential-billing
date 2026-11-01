@@ -1,18 +1,17 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useApartments } from '@/hooks/useApartments';
-import { useCharges } from '@/hooks/useCharges';
-import { usePaymentsForPeriod } from '@/hooks/usePayments';
+import { useAllCharges } from '@/hooks/useCharges';
+import { useAllPayments } from '@/hooks/usePayments';
 import { usePeriods } from '@/hooks/usePeriods';
 import { useServices } from '@/hooks/useServices';
-import { useTrend } from '@/hooks/useTrend';
 import { useI18n } from '@/context/I18nContext';
 import { useSettings } from '@/context/SettingsContext';
-import { computeBilling, serviceName } from '@/lib/billing';
+import { computeBilling, mergeChargesByApartment, serviceName } from '@/lib/billing';
 import { formatAmount, formatMoney, percent } from '@/lib/money';
 import { periodLabel, recentPeriodIds } from '@/lib/period';
 import { cn } from '@/lib/cn';
-import { PeriodNav } from '@/components/billing/PeriodNav';
+import { ALL_PERIODS, PeriodNav } from '@/components/billing/PeriodNav';
 import { PaymentStatusBadge, PeriodStatusBadge } from '@/components/billing/StatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState, LoadingBlock } from '@/components/ui/Feedback';
@@ -27,21 +26,53 @@ export function DashboardPage() {
   const [params, setParams] = useSearchParams();
 
   const { periods, byId, loading: periodsLoading } = usePeriods();
-  const requested = params.get('m') ?? '';
-  const periodId = byId.has(requested) ? requested : (periods[0]?.id ?? null);
+  // "All months" is the default: the dashboard summarizes the whole ledger,
+  // and picking a specific month drills into it.
+  const requested = params.get('m') ?? ALL_PERIODS;
+  const selectedMonth =
+    requested !== ALL_PERIODS && byId.has(requested) ? requested : null;
 
   const { apartments } = useApartments();
   const { services } = useServices();
-  const { charges } = useCharges(periodId);
-  const { payments } = usePaymentsForPeriod(periodId);
+  const { byPeriod, loading: chargesLoading } = useAllCharges();
+  const { payments: allPayments, loading: paymentsLoading } = useAllPayments();
+
+  // Lifetime mode folds every month's charge documents into one per apartment,
+  // so the same billing matrix produces whole-ledger totals.
+  const charges = useMemo(() => {
+    if (selectedMonth) return byPeriod[selectedMonth] ?? {};
+    return mergeChargesByApartment(
+      Object.values(byPeriod).flatMap((periodCharges) => Object.values(periodCharges)),
+    );
+  }, [byPeriod, selectedMonth]);
+
+  const payments = useMemo(
+    () =>
+      selectedMonth
+        ? allPayments.filter((payment) => payment.periodId === selectedMonth)
+        : allPayments,
+    [allPayments, selectedMonth],
+  );
 
   const view = useMemo(
     () => computeBilling({ apartments, services, charges, payments }),
     [apartments, services, charges, payments],
   );
 
-  const trendIds = useMemo(() => (periodId ? recentPeriodIds(6, periodId) : []), [periodId]);
-  const { points } = useTrend(trendIds);
+  const collectedByPeriod = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const payment of allPayments) {
+      totals[payment.periodId] = (totals[payment.periodId] ?? 0) + payment.amountMinor;
+    }
+    return totals;
+  }, [allPayments]);
+
+  const trendIds = useMemo(() => {
+    if (selectedMonth) return recentPeriodIds(6, selectedMonth);
+    return periods
+      .map((item) => item.id)
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  }, [periods, selectedMonth]);
 
   // A month costs the building more than the apartments are charged: the
   // building-wide bills live on the period (`sharedAmountsMinor`), not on the
@@ -49,15 +80,29 @@ export function DashboardPage() {
   // scale as the grey bar, so it reads as money actually received.
   const trendPoints = useMemo(
     () =>
-      points.map((point) => {
-        const shared = byId.get(point.periodId)?.sharedAmountsMinor ?? {};
-        const sharedMinor = Object.values(shared).reduce(
+      trendIds.map((id) => {
+        const monthCharges = Object.values(byPeriod[id] ?? {});
+        const chargedFromApartments = monthCharges.reduce(
+          (sum, charge) =>
+            sum +
+            Object.values(charge.amountsMinor).reduce(
+              (inner, amount) => inner + (amount || 0),
+              0,
+            ),
+          0,
+        );
+        const sharedMinor = Object.values(byId.get(id)?.sharedAmountsMinor ?? {}).reduce(
           (sum, amount) => sum + (amount || 0),
           0,
         );
-        return { ...point, sharedMinor, chargedMinor: point.chargedMinor + sharedMinor };
+        return {
+          periodId: id,
+          chargedMinor: chargedFromApartments + sharedMinor,
+          collectedMinor: collectedByPeriod[id] ?? 0,
+          sharedMinor,
+        };
       }),
-    [points, byId],
+    [trendIds, byPeriod, byId, collectedByPeriod],
   );
 
   const unpaid = useMemo(
@@ -84,11 +129,11 @@ export function DashboardPage() {
     1,
     ...trendPoints.map((point) => Math.max(point.chargedMinor, point.collectedMinor)),
   );
-  const period = periodId ? byId.get(periodId) : undefined;
+  const period = selectedMonth ? byId.get(selectedMonth) : undefined;
 
-  if (periodsLoading) return <LoadingBlock />;
+  if (periodsLoading || chargesLoading || paymentsLoading) return <LoadingBlock />;
 
-  if (!periodId) {
+  if (periods.length === 0) {
     return (
       <>
         <PageHeader title={t('dashboard.title')} />
@@ -111,17 +156,26 @@ export function DashboardPage() {
     <>
       <PageHeader
         title={t('dashboard.title')}
-        subtitle={t('dashboard.subtitle', { period: periodLabel(periodId, lang) })}
+        subtitle={
+          selectedMonth
+            ? t('dashboard.subtitle', { period: periodLabel(selectedMonth, lang) })
+            : t('dashboard.subtitleAll')
+        }
         actions={
           <>
             {period ? <PeriodStatusBadge status={period.status} /> : null}
             <PeriodNav
-              periodId={periodId}
+              periodId={selectedMonth ?? ALL_PERIODS}
               periods={periods}
-              onChange={(next) => setParams({ m: next })}
+              includeAll
+              allLabel={t('dashboard.allMonths')}
+              onChange={(next) => setParams(next === ALL_PERIODS ? {} : { m: next })}
             />
-            <Link to={`/periods/${periodId}`} className={buttonClass('primary', 'md')}>
-              {t('periods.view')}
+            <Link
+              to={selectedMonth ? `/periods/${selectedMonth}` : '/periods'}
+              className={buttonClass('primary', 'md')}
+            >
+              {selectedMonth ? t('periods.view') : t('periods.title')}
               <Icon name="arrow-right" className="h-4 w-4 rtl:rotate-180" />
             </Link>
           </>
@@ -220,9 +274,10 @@ export function DashboardPage() {
             )}
           </SectionCard>
 
-          <SectionCard title={t('dashboard.trend')}>
-            <div className="flex h-40 items-end justify-between gap-2">
-              {trendPoints.map((point) => {
+          <SectionCard title={selectedMonth ? t('dashboard.trend') : t('dashboard.trendAll')}>
+            <div className="overflow-x-auto">
+              <div className="flex h-40 min-w-full items-end justify-between gap-2">
+                {trendPoints.map((point) => {
                 // Heights are percentages, so the bar column must own a definite
                 // height — otherwise every bar collapses to nothing.
                 const height = Math.max(3, Math.round((point.chargedMinor / maxTrend) * 100));
@@ -233,7 +288,7 @@ export function DashboardPage() {
                 return (
                   <div
                     key={point.periodId}
-                    className="flex h-full flex-1 flex-col items-center justify-end gap-1"
+                    className="flex h-full min-w-10 flex-1 flex-col items-center justify-end gap-1"
                   >
                     <div className="flex w-full flex-1 items-end justify-center">
                       <div
@@ -273,8 +328,9 @@ export function DashboardPage() {
                       {periodLabel(point.periodId, lang, 'short')}
                     </span>
                   </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">
@@ -297,13 +353,20 @@ export function DashboardPage() {
           className="self-start"
         >
           {unpaid.length === 0 ? (
-            <EmptyState icon="check" title={t('dashboard.allCollected')} />
+            <EmptyState
+              icon="check"
+              title={t(selectedMonth ? 'dashboard.allCollected' : 'dashboard.allCollectedAll')}
+            />
           ) : (
             <ul className="divide-y divide-slate-100">
               {unpaid.map((row) => (
                 <li key={row.apartment.id}>
                   <Link
-                    to={`/apartments/${row.apartment.id}?m=${periodId}`}
+                    to={
+                      selectedMonth
+                        ? `/apartments/${row.apartment.id}?m=${selectedMonth}`
+                        : `/apartments/${row.apartment.id}`
+                    }
                     className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-slate-50"
                   >
                     <div className="min-w-0 flex-1">

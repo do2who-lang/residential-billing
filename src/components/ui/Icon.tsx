@@ -9,6 +9,7 @@ const paths: Record<string, ReactNode> = {
       <rect x="3" y="16" width="7" height="5" rx="1.5" />
     </>
   ),
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   calendar: (
     <>
       <rect x="3" y="5" width="18" height="16" rx="2" />

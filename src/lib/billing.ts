@@ -166,6 +166,35 @@ export function computeBilling(params: {
   return { rows, services: visibleServices, totals };
 }
 
+/**
+ * Fold charge documents from several periods into one document per apartment.
+ * The dashboard uses this to show lifetime figures through the same billing
+ * matrix it uses for a single month.
+ */
+export function mergeChargesByApartment(
+  charges: Array<Pick<Charge, 'apartmentId' | 'amountsMinor'>>,
+): Record<string, Charge> {
+  const merged: Record<string, Charge> = {};
+
+  for (const charge of charges) {
+    if (!charge.apartmentId) continue;
+    const target =
+      merged[charge.apartmentId] ??
+      (merged[charge.apartmentId] = {
+        id: charge.apartmentId,
+        apartmentId: charge.apartmentId,
+        amountsMinor: {},
+      });
+
+    for (const [serviceId, amount] of Object.entries(charge.amountsMinor ?? {})) {
+      if (!amount) continue;
+      target.amountsMinor[serviceId] = (target.amountsMinor[serviceId] ?? 0) + amount;
+    }
+  }
+
+  return merged;
+}
+
 /** Sum of every charge in a period, ignoring per-apartment grouping. */
 export function totalCharged(charges: Record<string, Charge>): number {
   return Object.values(charges).reduce(

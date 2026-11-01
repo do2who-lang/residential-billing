@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { computeBilling, paymentStatus, totalCharged } from '@/lib/billing';
+import {
+  computeBilling,
+  mergeChargesByApartment,
+  paymentStatus,
+  totalCharged,
+} from '@/lib/billing';
 import { formatAmount, parseAmount, percent, toMajor, toMinor } from '@/lib/money';
 import {
   isValidPeriodId,
@@ -196,5 +201,31 @@ describe('totalCharged', () => {
         '2': charge('2', { water: 2000 }),
       }),
     ).toBe(3500);
+  });
+});
+
+describe('mergeChargesByApartment', () => {
+  it('sums the same apartment and service across periods', () => {
+    expect(
+      mergeChargesByApartment([
+        charge('1', { water: 1000, sewage: 500 }),
+        charge('1', { water: 2000 }),
+        charge('2', { water: 3000 }),
+      ]),
+    ).toEqual({
+      '1': { id: '1', apartmentId: '1', amountsMinor: { water: 3000, sewage: 500 } },
+      '2': { id: '2', apartmentId: '2', amountsMinor: { water: 3000 } },
+    });
+  });
+
+  it('ignores zero amounts and empty apartment ids', () => {
+    expect(
+      mergeChargesByApartment([
+        charge('1', { water: 0, sewage: 700 }),
+        charge('', { water: 900 }),
+      ]),
+    ).toEqual({
+      '1': { id: '1', apartmentId: '1', amountsMinor: { sewage: 700 } },
+    });
   });
 });
