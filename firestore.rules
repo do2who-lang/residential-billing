@@ -1,0 +1,110 @@
+rules_version = '2';
+
+// ---------------------------------------------------------------------------
+// Building Ledger — Firestore security rules
+//
+// Roles:
+//   admin    -> full read/write on building data
+//   resident -> read-only, scoped to their own apartment
+//
+// The very first admin document must be created manually in the Firebase
+// console (Firestore > users > <uid> > { role: 'admin', active: true }).
+// After that, admins can create the remaining user documents from the app.
+// ---------------------------------------------------------------------------
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------- helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function profile() {
+      return get(profilePath()).data;
+    }
+
+    function isActiveProfile() {
+      return isSignedIn() && exists(profilePath()) && profile().active == true;
+    }
+
+    function isAdmin() {
+      return isActiveProfile() && profile().role == 'admin';
+    }
+
+    function myApartmentId() {
+      return isActiveProfile() ? profile().apartmentId : null;
+    }
+
+    function ownsApartment(apartmentId) {
+      return isActiveProfile() && myApartmentId() != null && apartmentId == myApartmentId();
+    }
+
+    function signedInOnly() {
+      return isActiveProfile();
+    }
+
+    // ---------------------------------------------------------- building meta
+    match /settings/{documentId} {
+      allow read: if signedInOnly();
+      allow write: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------ users
+    match /users/{uid} {
+      // Self-read is allowed even when the profile document does not exist yet,
+      // so the app can show a clear "no access" screen instead of an error.
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------- apartments
+    match /apartments/{apartmentId} {
+      allow read: if isAdmin() || ownsApartment(apartmentId);
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --------------------------------------------------------------- services
+    match /services/{serviceId} {
+      allow read: if signedInOnly();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---------------------------------------------------------------- periods
+    match /periods/{periodId} {
+      allow read: if signedInOnly();
+      allow create, update, delete: if isAdmin();
+
+      // One charge document per apartment, keyed by apartment id.
+      match /charges/{apartmentId} {
+        allow read: if isAdmin() || ownsApartment(apartmentId);
+        allow create, update, delete: if isAdmin();
+      }
+    }
+
+    // Collection-group reads of charges, used by the apartment history view.
+    // The condition is expressed through document data so Firestore can prove it
+    // for a `where('apartmentId', '==', ...)` query.
+    match /{path=**}/charges/{apartmentId} {
+      allow read: if isAdmin()
+        || (isActiveProfile() && resource.data.apartmentId == myApartmentId());
+    }
+
+    // --------------------------------------------------------------- payments
+    match /payments/{paymentId} {
+      allow read: if isAdmin() || ownsApartment(resource.data.apartmentId);
+      allow create: if isAdmin()
+        && request.resource.data.amountMinor is int
+        && request.resource.data.amountMinor > 0
+        && request.resource.data.periodId is string
+        && request.resource.data.apartmentId is string
+        && request.resource.data.serviceId is string;
+      allow update, delete: if isAdmin();
+    }
+  }
+}
