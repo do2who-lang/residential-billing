@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState, LoadingBlock } from '@/components/ui/Feedback';
 import { Icon } from '@/components/ui/Icon';
 import { AvailableBalanceCard } from '@/components/treasury/AvailableBalanceCard';
+import { SharedExpensesStats } from '@/components/billing/SharedExpensesStats';
+import { ApartmentStats } from '@/components/billing/ApartmentStats';
 import { PageHeader, SectionCard, StatCard } from '@/components/ui/Page';
 import { buttonClass } from '@/components/ui/Button';
 
@@ -76,13 +78,13 @@ export function DashboardPage() {
 
   // A month costs the building more than the apartments are charged: the
   // building-wide bills live on the period (`sharedAmountsMinor`), not on the
-  // charges, so the trend adds them back in. The green part stays on the same
-  // scale as the grey bar, so it reads as money actually received.
+  // charges, so the trend adds them back in. The bar is stacked so the shared
+  // part is visible on its own instead of being folded into the total.
   const trendPoints = useMemo(
     () =>
       trendIds.map((id) => {
         const monthCharges = Object.values(byPeriod[id] ?? {});
-        const chargedFromApartments = monthCharges.reduce(
+        const apartmentMinor = monthCharges.reduce(
           (sum, charge) =>
             sum +
             Object.values(charge.amountsMinor).reduce(
@@ -97,12 +99,27 @@ export function DashboardPage() {
         );
         return {
           periodId: id,
-          chargedMinor: chargedFromApartments + sharedMinor,
-          collectedMinor: collectedByPeriod[id] ?? 0,
+          apartmentMinor,
           sharedMinor,
+          chargedMinor: apartmentMinor + sharedMinor,
+          collectedMinor: collectedByPeriod[id] ?? 0,
         };
       }),
     [trendIds, byPeriod, byId, collectedByPeriod],
+  );
+
+  // The statistics card follows the dashboard scope: one month when drilled in,
+  // the whole ledger otherwise.
+  const sharedStatsIds = useMemo(
+    () => (selectedMonth ? [selectedMonth] : periods.map((item) => item.id)),
+    [periods, selectedMonth],
+  );
+
+  // Shared bills are split equally between the apartments the building still
+  // bills; archived apartments are not part of that split.
+  const activeApartmentCount = useMemo(
+    () => apartments.filter((apartment) => !apartment.archived).length,
+    [apartments],
   );
 
   const unpaid = useMemo(
@@ -281,9 +298,17 @@ export function DashboardPage() {
                 // Heights are percentages, so the bar column must own a definite
                 // height — otherwise every bar collapses to nothing.
                 const height = Math.max(3, Math.round((point.chargedMinor / maxTrend) * 100));
+                // Advances are possible, but the stacked parts are measured
+                // against apartment charges so the grey "unpaid" slice never
+                // goes negative.
+                const collectedShown = Math.min(point.collectedMinor, point.apartmentMinor);
                 const paidHeight = Math.min(
                   100,
-                  Math.round((point.collectedMinor / maxTrend) * 100),
+                  Math.round((collectedShown / maxTrend) * 100),
+                );
+                const sharedHeight = Math.min(
+                  100,
+                  Math.round((point.sharedMinor / maxTrend) * 100),
                 );
                 return (
                   <div
@@ -292,14 +317,10 @@ export function DashboardPage() {
                   >
                     <div className="flex w-full flex-1 items-end justify-center">
                       <div
-                        className="relative flex w-full max-w-[3.25rem] items-end justify-center overflow-hidden rounded-t bg-slate-200"
+                        className="relative flex w-full max-w-[3.25rem] flex-col-reverse items-stretch overflow-hidden rounded-t bg-slate-200"
                         style={{ height: `${height}%` }}
-                        title={`${t('billing.charged')}: ${formatMoney(
-                          point.chargedMinor,
-                          settings.currency,
-                          lang,
-                        )} · ${t('dashboard.collected')}: ${formatMoney(
-                          point.collectedMinor,
+                        title={`${t('dashboard.apartmentCharges')}: ${formatMoney(
+                          point.apartmentMinor,
                           settings.currency,
                           lang,
                         )}${point.sharedMinor > 0
@@ -308,12 +329,28 @@ export function DashboardPage() {
                               settings.currency,
                               lang,
                             )}`
-                          : ''}`}
+                          : ''} · ${t('dashboard.collected')}: ${formatMoney(
+                          point.collectedMinor,
+                          settings.currency,
+                          lang,
+                        )} · ${t('billing.outstanding')}: ${formatMoney(
+                          Math.max(0, point.apartmentMinor - collectedShown),
+                          settings.currency,
+                          lang,
+                        )}`}
                       >
-                        <div
-                          className="w-full rounded-t bg-brand-500/80"
-                          style={{ height: `${paidHeight}%` }}
-                        />
+                        {paidHeight > 0 ? (
+                          <div
+                            className="w-full shrink-0 bg-brand-500/80"
+                            style={{ height: `${paidHeight}%` }}
+                          />
+                        ) : null}
+                        {sharedHeight > 0 ? (
+                          <div
+                            className="w-full shrink-0 border-b border-white/70 bg-amber-400/80"
+                            style={{ height: `${sharedHeight}%` }}
+                          />
+                        ) : null}
                       </div>
                     </div>
                     <div className="w-full text-center text-[9px] leading-tight tabular-nums">
@@ -323,6 +360,11 @@ export function DashboardPage() {
                       <p className="truncate font-semibold text-brand-700">
                         {formatAmount(point.collectedMinor, lang)}
                       </p>
+                      {point.sharedMinor > 0 ? (
+                        <p className="truncate font-semibold text-amber-600">
+                          {formatAmount(point.sharedMinor, lang)}
+                        </p>
+                      ) : null}
                     </div>
                     <span className="text-[10px] leading-none text-slate-500">
                       {periodLabel(point.periodId, lang, 'short')}
@@ -334,62 +376,76 @@ export function DashboardPage() {
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-sm bg-slate-200" /> {t('billing.charged')}
+                <span className="h-2 w-2 rounded-sm bg-brand-500/80" /> {t('dashboard.collected')}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-sm bg-brand-500/80" /> {t('dashboard.collected')}
+                <span className="h-2 w-2 rounded-sm bg-slate-200" /> {t('billing.unpaid')}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm bg-amber-400/80" /> {t('shared.title')}
               </span>
               <span className="ms-auto text-[11px] text-slate-400">
                 {t('dashboard.trendShared')}
               </span>
             </div>
           </SectionCard>
+
+          <SharedExpensesStats
+            periodIds={sharedStatsIds}
+            periodsById={byId}
+            services={services}
+            apartmentCount={activeApartmentCount}
+          />
         </div>
 
-        <SectionCard
-          title={t('dashboard.unpaid')}
-          description={`${unpaid.length} ${t('common.customers')}`}
-          noPadding
-          className="self-start"
-        >
-          {unpaid.length === 0 ? (
-            <EmptyState
-              icon="check"
-              title={t(selectedMonth ? 'dashboard.allCollected' : 'dashboard.allCollectedAll')}
-            />
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {unpaid.map((row) => (
-                <li key={row.apartment.id}>
-                  <Link
-                    to={
-                      selectedMonth
-                        ? `/apartments/${row.apartment.id}?m=${selectedMonth}`
-                        : `/apartments/${row.apartment.id}`
-                    }
-                    className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-slate-50"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-800">
-                        {row.apartment.name}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {[row.apartment.floor, row.apartment.number].filter(Boolean).join(' · ') ||
-                          '—'}
-                      </p>
-                    </div>
-                    <div className="text-end">
-                      <p className="tnum text-sm font-semibold text-rose-600">
-                        {formatAmount(row.outstandingMinor, lang)}
-                      </p>
-                      <PaymentStatusBadge status={row.status} />
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
+        <div className="space-y-4 self-start">
+          <SectionCard
+            title={t('dashboard.unpaid')}
+            description={`${unpaid.length} ${t('common.customers')}`}
+            noPadding
+          >
+            {unpaid.length === 0 ? (
+              <EmptyState
+                icon="check"
+                title={t(selectedMonth ? 'dashboard.allCollected' : 'dashboard.allCollectedAll')}
+              />
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {unpaid.map((row) => (
+                  <li key={row.apartment.id}>
+                    <Link
+                      to={
+                        selectedMonth
+                          ? `/apartments/${row.apartment.id}?m=${selectedMonth}`
+                          : `/apartments/${row.apartment.id}`
+                      }
+                      className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-slate-50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-800">
+                          {row.apartment.name}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {[row.apartment.floor, row.apartment.number]
+                            .filter(Boolean)
+                            .join(' · ') || '—'}
+                        </p>
+                      </div>
+                      <div className="text-end">
+                        <p className="tnum text-sm font-semibold text-rose-600">
+                          {formatAmount(row.outstandingMinor, lang)}
+                        </p>
+                        <PaymentStatusBadge status={row.status} />
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+
+          <ApartmentStats rows={view.rows} services={view.services} />
+        </div>
       </div>
     </>
   );

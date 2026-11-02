@@ -49,7 +49,10 @@ function statusOf(chargedMinor: number, paidMinor: number): PaymentStatus {
 
 export { statusOf as paymentStatus };
 
-export function serviceName(service: Service | undefined, lang: 'en' | 'ar'): string {
+export function serviceName(
+  service: Pick<Service, 'nameEn' | 'nameAr'> | undefined,
+  lang: 'en' | 'ar',
+): string {
   if (!service) return '—';
   return lang === 'ar' ? service.nameAr || service.nameEn : service.nameEn || service.nameAr;
 }
