@@ -399,6 +399,8 @@ export function DashboardPage() {
         </div>
 
         <div className="space-y-4 self-start">
+          <ApartmentStats rows={view.rows} services={view.services} />
+
           <SectionCard
             title={t('dashboard.unpaid')}
             description={`${unpaid.length} ${t('common.customers')}`}
@@ -443,8 +445,6 @@ export function DashboardPage() {
               </ul>
             )}
           </SectionCard>
-
-          <ApartmentStats rows={view.rows} services={view.services} />
         </div>
       </div>
     </>

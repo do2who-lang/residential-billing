@@ -64,7 +64,7 @@ export function ApartmentStats({ rows, services }: ApartmentStatsProps) {
         <EmptyState icon="home" title={t('dashboard.apartmentStatsEmpty')} />
       ) : (
         <>
-          <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+          <ul className="max-h-[32rem] divide-y divide-slate-100 overflow-y-auto">
             {stats.map((row) => {
               // An advance with no charge would divide by zero; it is fully
               // covered by definition.
