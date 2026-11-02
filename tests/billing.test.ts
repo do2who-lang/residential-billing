@@ -3,6 +3,7 @@ import {
   computeBilling,
   mergeChargesByApartment,
   paymentStatus,
+  selectApartmentBilling,
   totalCharged,
 } from '@/lib/billing';
 import { formatAmount, parseAmount, percent, toMajor, toMinor } from '@/lib/money';
@@ -201,6 +202,44 @@ describe('totalCharged', () => {
         '2': charge('2', { water: 2000 }),
       }),
     ).toBe(3500);
+  });
+});
+
+describe('selectApartmentBilling', () => {
+  const amountsByPeriod = {
+    '2026-01': { water: 1000, sewage: 500 },
+    '2026-02': { water: 2000 },
+  };
+  const payments = [
+    payment('1', 'water', 500),
+    { ...payment('1', 'water', 700), periodId: '2026-02' },
+    { ...payment('1', 'sewage', 100), periodId: '2025-12' },
+  ];
+
+  it('sums every period by service and includes payments without a charge period', () => {
+    expect(selectApartmentBilling({ amountsByPeriod, payments, periodId: null })).toEqual({
+      amounts: { water: 3000, sewage: 500 },
+      payments,
+    });
+    expect(amountsByPeriod['2026-01']).toEqual({ water: 1000, sewage: 500 });
+  });
+
+  it('limits charges and payments to the selected month', () => {
+    expect(
+      selectApartmentBilling({ amountsByPeriod, payments, periodId: '2026-02' }),
+    ).toEqual({ amounts: { water: 2000 }, payments: [payments[1]] });
+  });
+
+  it('keeps payments for a month with no charges', () => {
+    expect(
+      selectApartmentBilling({ amountsByPeriod, payments, periodId: '2025-12' }),
+    ).toEqual({ amounts: {}, payments: [payments[2]] });
+  });
+
+  it('returns empty amounts and payments for an empty ledger', () => {
+    expect(
+      selectApartmentBilling({ amountsByPeriod: {}, payments: [], periodId: null }),
+    ).toEqual({ amounts: {}, payments: [] });
   });
 });
 

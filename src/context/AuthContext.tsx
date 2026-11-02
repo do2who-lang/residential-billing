@@ -8,16 +8,20 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  updatePassword,
   type User,
 } from 'firebase/auth';
 import { onSnapshot } from 'firebase/firestore';
-import { auth, isFirebaseConfigured } from '@/firebase/config';
+import { allowLegacyEmailLogin, auth, isFirebaseConfigured } from '@/firebase/config';
 import { userDocRef } from '@/firebase/collections';
 import { errorKey } from '@/lib/errors';
+import { isLegacyEmail, signInEmail } from '@/lib/phoneAuth';
 import type { TranslationKey } from '@/lib/i18n';
 import type { AppUser } from '@/types/models';
 
@@ -28,9 +32,10 @@ interface AuthValue {
   isAdmin: boolean;
   hasAccess: boolean;
   profileError: TranslationKey | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (identifier: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
+  resetLegacyPassword: (email: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -75,16 +80,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, [firebaseUser]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email.trim(), password);
+  const signIn = useCallback(async (identifier: string, password: string) => {
+    await signInWithEmailAndPassword(auth, signInEmail(identifier, allowLegacyEmailLogin), password);
   }, []);
 
   const signOut = useCallback(async () => {
     await firebaseSignOut(auth);
   }, []);
 
-  const resetPassword = useCallback(async (email: string) => {
+  const resetLegacyPassword = useCallback(async (email: string) => {
+    if (!allowLegacyEmailLogin || !isLegacyEmail(email)) {
+      throw new Error('Email password reset is only available to unmigrated accounts.');
+    }
     await sendPasswordResetEmail(auth, email.trim());
+  }, []);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const user = auth.currentUser;
+    if (!user?.email) throw new Error('No password account is signed in.');
+    await reauthenticateWithCredential(
+      user,
+      EmailAuthProvider.credential(user.email, currentPassword),
+    );
+    await updatePassword(user, newPassword);
   }, []);
 
   const isAdmin = Boolean(profile && profile.active && profile.role === 'admin');
@@ -100,9 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileError,
       signIn,
       signOut,
-      resetPassword,
+      resetLegacyPassword,
+      changePassword,
     }),
-    [firebaseUser, profile, authReady, profileReady, isAdmin, hasAccess, profileError, signIn, signOut, resetPassword],
+    [firebaseUser, profile, authReady, profileReady, isAdmin, hasAccess, profileError, signIn, signOut, resetLegacyPassword, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

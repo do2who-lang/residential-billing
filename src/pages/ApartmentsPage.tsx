@@ -11,6 +11,7 @@ import {
 } from '@/api/apartments';
 import { errorKey } from '@/lib/errors';
 import { cn } from '@/lib/cn';
+import { userIdentifier } from '@/lib/users';
 import { Badge } from '@/components/ui/Badge';
 import { Button, buttonClass } from '@/components/ui/Button';
 import { ConfirmDialog, Modal } from '@/components/ui/Modal';
@@ -327,7 +328,7 @@ export function ApartmentsPage() {
                 dir="ltr"
                 value={form.phone}
                 onChange={(event) => set('phone', event.target.value)}
-                placeholder="+962 7X XXX XXXX"
+                placeholder="0791234567"
               />
             </Field>
             <Field label={t('apartments.email')} htmlFor="apartment-email">
@@ -358,7 +359,7 @@ export function ApartmentsPage() {
         onCancel={() => setToArchive(null)}
       />
 
-      <p className="mt-3 text-xs text-slate-400">{profile?.email}</p>
+      <p className="mt-3 text-xs text-slate-400">{userIdentifier(profile)}</p>
     </>
   );
 }

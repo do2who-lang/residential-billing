@@ -5,6 +5,8 @@ import { useI18n } from '@/context/I18nContext';
 import { useSettings } from '@/context/SettingsContext';
 import { cn } from '@/lib/cn';
 import { useTheme } from '@/lib/theme';
+import { userDisplayName } from '@/lib/users';
+import { ChangePasswordDialog } from '@/components/layout/ChangePasswordDialog';
 import { Button } from '@/components/ui/Button';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { TranslationKey } from '@/lib/i18n';
@@ -45,11 +47,21 @@ export function AppShell() {
   const { theme, toggle: toggleTheme } = useTheme();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readNavCollapsed);
 
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [menuOpen]);
 
   const toggleCollapsed = () => {
     setCollapsed((current) => {
@@ -64,16 +76,21 @@ export function AppShell() {
   };
 
   const nav = isAdmin ? ADMIN_NAV : RESIDENT_NAV;
+  const activeItem = nav.find((item) =>
+    item.to === '/'
+      ? location.pathname === item.to
+      : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`),
+  );
 
   const renderSidebar = (isCollapsed: boolean, onClose?: () => void) => (
     <div className="flex h-full flex-col">
       <div
         className={cn(
-          'flex items-center gap-2.5 py-4',
-          isCollapsed ? 'justify-center px-2' : 'px-4',
+          'flex items-center gap-3 py-6',
+          isCollapsed ? 'justify-center px-2' : 'px-5',
         )}
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-white">
+        <span className="app-brand-mark flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white">
           <Icon name="home" className="h-5 w-5" />
         </span>
         {!isCollapsed ? (
@@ -81,7 +98,7 @@ export function AppShell() {
             <p className="truncate text-sm font-semibold text-slate-900">
               {settings.name || t('app.name')}
             </p>
-            <p className="truncate text-[11px] text-slate-500">{t('app.tagline')}</p>
+            <p className="mt-0.5 truncate text-[11px] text-slate-500">{t('app.tagline')}</p>
           </div>
         ) : null}
         {onClose ? (
@@ -97,39 +114,48 @@ export function AppShell() {
         ) : null}
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-2 pb-4">
-        {nav.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/'}
-            title={isCollapsed ? t(item.labelKey) : undefined}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center rounded-lg text-sm font-medium transition-colors',
-                isCollapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2',
-                isActive
-                  ? 'bg-brand-50 text-brand-800'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-              )
-            }
-          >
-            <Icon name={item.icon} className="h-[18px] w-[18px] shrink-0" />
-            {!isCollapsed ? <span className="truncate">{t(item.labelKey)}</span> : null}
-          </NavLink>
-        ))}
+      <nav aria-label={t('nav.workspace')} className="flex-1 overflow-y-auto px-3 pb-5">
+        {!isCollapsed ? (
+          <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+            {t('nav.workspace')}
+          </p>
+        ) : null}
+        <div className="space-y-1">
+          {nav.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/'}
+              title={isCollapsed ? t(item.labelKey) : undefined}
+              aria-label={isCollapsed ? t(item.labelKey) : undefined}
+              className={({ isActive }) =>
+                cn(
+                  'flex min-h-11 items-center rounded-xl text-sm font-medium transition-colors',
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3',
+                  isActive
+                    ? 'app-nav-active font-semibold'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                )
+              }
+            >
+              <Icon name={item.icon} className="h-[18px] w-[18px] shrink-0" />
+              {!isCollapsed ? <span className="truncate">{t(item.labelKey)}</span> : null}
+            </NavLink>
+          ))}
+        </div>
       </nav>
 
       <div className={cn('border-t border-slate-200', isCollapsed ? 'p-2' : 'p-3')}>
         {!isCollapsed ? (
-          <div className="mb-2 flex gap-1 rounded-lg bg-slate-100 p-1">
+          <div className="mb-3 flex gap-1 rounded-xl bg-slate-100 p-1">
             {(['en', 'ar'] as const).map((code) => (
               <button
                 key={code}
                 type="button"
                 onClick={() => setLang(code)}
+                aria-pressed={lang === code}
                 className={cn(
-                  'flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
+                  'flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors',
                   lang === code
                     ? 'bg-white text-slate-900 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700',
@@ -142,26 +168,38 @@ export function AppShell() {
         ) : null}
         <div
           className={cn(
-            'flex items-center gap-2 rounded-lg py-1',
-            isCollapsed ? 'flex-col px-0' : 'px-1',
+            'app-account flex items-center gap-2 rounded-xl py-2',
+            isCollapsed ? 'flex-col px-1' : 'px-2',
           )}
         >
           <span
-            title={profile?.displayName || profile?.email || undefined}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-semibold uppercase text-slate-600"
+            title={userDisplayName(profile) || undefined}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-200 text-[11px] font-semibold uppercase text-slate-600"
           >
-            {(profile?.displayName || profile?.email || '?').slice(0, 2)}
+            {(userDisplayName(profile) || '?').slice(0, 2)}
           </span>
           {!isCollapsed ? (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium text-slate-700">
-                {profile?.displayName || profile?.email}
+              <p className="truncate text-xs font-semibold text-slate-700">
+                {userDisplayName(profile)}
               </p>
               <p className="truncate text-[11px] text-slate-400">
                 {isAdmin ? t('residents.adminBadge') : t('residents.residentBadge')}
               </p>
             </div>
           ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setChangePasswordOpen(true);
+            }}
+            title={t('auth.changePassword')}
+            aria-label={t('auth.changePassword')}
+            className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-700"
+          >
+            <Icon name="lock" className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={() => void signOut()}
@@ -177,13 +215,13 @@ export function AppShell() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="app-canvas min-h-screen">
       {/* Desktop sidebar */}
       <aside
         id="app-sidebar"
         className={cn(
-          'no-print fixed inset-y-0 start-0 z-30 hidden border-e border-slate-200 bg-white transition-[width] duration-200 ease-out lg:block',
-          collapsed ? 'w-[4.75rem]' : 'w-60',
+          'app-sidebar no-print fixed inset-y-0 start-0 z-30 hidden border-e transition-[width] duration-200 ease-out lg:block',
+          collapsed ? 'w-20' : 'w-64',
         )}
       >
         {renderSidebar(collapsed)}
@@ -197,7 +235,10 @@ export function AppShell() {
             onClick={() => setMenuOpen(false)}
             aria-hidden="true"
           />
-          <aside className="absolute inset-y-0 start-0 w-64 max-w-[85vw] border-e border-slate-200 bg-white shadow-xl">
+          <aside
+            id="app-mobile-nav"
+            className="app-sidebar absolute inset-y-0 start-0 w-72 max-w-[85vw] border-e shadow-xl"
+          >
             {renderSidebar(false, () => setMenuOpen(false))}
           </aside>
         </div>
@@ -206,23 +247,25 @@ export function AppShell() {
       <div
         className={cn(
           'transition-[padding] duration-200 ease-out',
-          collapsed ? 'lg:ps-[4.75rem]' : 'lg:ps-60',
+          collapsed ? 'lg:ps-20' : 'lg:ps-64',
         )}
       >
-        <header className="no-print sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur">
+        <header className="app-topbar no-print sticky top-0 z-20 flex h-16 items-center gap-3 border-b px-4 backdrop-blur-xl sm:px-6">
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
+            className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
             title={t('nav.openMenu')}
             aria-label={t('nav.openMenu')}
+            aria-controls="app-mobile-nav"
+            aria-expanded={menuOpen}
           >
             <Icon name="menu" className="h-5 w-5" />
           </button>
           <button
             type="button"
             onClick={toggleCollapsed}
-            className="hidden rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 lg:inline-flex"
+            className="hidden rounded-xl p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 lg:inline-flex"
             title={t(collapsed ? 'nav.expand' : 'nav.collapse')}
             aria-label={t(collapsed ? 'nav.expand' : 'nav.collapse')}
             aria-controls="app-sidebar"
@@ -233,15 +276,27 @@ export function AppShell() {
               className="h-5 w-5 rtl:rotate-180"
             />
           </button>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-slate-700">{settings.name}</p>
+          <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+            <p className="hidden truncate text-slate-500 sm:block">
+              {settings.name || t('app.name')}
+            </p>
+            {activeItem ? (
+              <>
+                <span aria-hidden="true" className="hidden text-slate-300 sm:block">/</span>
+                <p className="truncate font-semibold text-slate-800">{t(activeItem.labelKey)}</p>
+              </>
+            ) : (
+              <p className="truncate font-semibold text-slate-800 sm:hidden">
+                {settings.name || t('app.name')}
+              </p>
+            )}
           </div>
           <button
             type="button"
             onClick={toggleTheme}
             title={t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark')}
             aria-label={t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark')}
-            className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             {theme === 'dark' ? (
               <svg
@@ -283,10 +338,11 @@ export function AppShell() {
           </Button>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
+        <main className="mx-auto w-full max-w-[88rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <Outlet />
         </main>
       </div>
+      <ChangePasswordDialog open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
     </div>
   );
 }

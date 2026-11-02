@@ -198,6 +198,31 @@ export function mergeChargesByApartment(
   return merged;
 }
 
+export function selectApartmentBilling({
+  amountsByPeriod,
+  payments,
+  periodId,
+}: {
+  amountsByPeriod: Record<string, Record<string, number>>;
+  payments: Payment[];
+  periodId: string | null;
+}): { amounts: Record<string, number>; payments: Payment[] } {
+  if (periodId !== null) {
+    return {
+      amounts: amountsByPeriod[periodId] ?? {},
+      payments: payments.filter((payment) => payment.periodId === periodId),
+    };
+  }
+
+  const amounts: Record<string, number> = {};
+  for (const periodAmounts of Object.values(amountsByPeriod)) {
+    for (const [serviceId, amount] of Object.entries(periodAmounts)) {
+      amounts[serviceId] = (amounts[serviceId] ?? 0) + amount;
+    }
+  }
+  return { amounts, payments };
+}
+
 /** Sum of every charge in a period, ignoring per-apartment grouping. */
 export function totalCharged(charges: Record<string, Charge>): number {
   return Object.values(charges).reduce(

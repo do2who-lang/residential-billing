@@ -47,7 +47,7 @@ export function PeriodNav({
   const options = periods.length ? periods : isAll ? [] : [{ id: periodId } as Period];
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white p-1 shadow-sm">
+    <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
       <button
         type="button"
         onClick={() => step(-1)}

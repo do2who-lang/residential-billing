@@ -21,6 +21,8 @@ records the payments as they come in — everything is live and printable.
 - **English + Arabic (RTL)** and **JOD** (three decimals) out of the box.
 - **Roles** — `admin` (treasurer) writes everything, `resident` reads only their
   own apartment.
+- **Resident dashboard** — filter by month or choose **All time** to total charges,
+  payments and balances across every month; printed statements follow the filter.
 
 ## Stack
 
@@ -29,11 +31,13 @@ records the payments as they come in — everything is live and printable.
 | UI         | React 19 + TypeScript + Vite 6                    |
 | Styling    | Tailwind CSS 3 (logical properties for RTL)       |
 | Routing    | React Router 6                                    |
-| Data       | Firebase Auth (email/password) + Cloud Firestore  |
+| Data       | Firebase Auth (phone username/password) + Cloud Firestore |
 | Hosting    | Firebase Hosting (static SPA)                     |
 | Tests      | Vitest (+ `@firebase/rules-unit-testing`)         |
 
-No Cloud Functions and no billing — the app runs entirely on the free Spark plan.
+No SMS, Cloud Functions, or hosted authentication backend are required. The app
+can run on the free Spark plan, subject to Firebase's usage limits. Deleting a
+resident removes their profile and building access, not their Firebase login.
 
 ## Getting started
 
@@ -50,35 +54,150 @@ npm run dev                    # http://localhost:5173
 3. **Build → Firestore Database → Create database** (production mode).
 4. **Project settings → Your apps → Web app** → copy the config values into
    `.env.local`.
-5. Deploy rules and indexes: `npm run deploy` (or
-   `npx firebase deploy --only firestore:rules,firestore:indexes`).
-6. Point `.firebaserc` at your project id.
+5. Point `.firebaserc` at your project id.
+6. Run `npm run deploy` to deploy hosting, rules, and indexes. No billing upgrade
+   or Cloud Functions deployment is required.
 
-### Create the first admin (one-time, manual)
+### Phone usernames and passwords
 
-Every permission check reads `users/{uid}`, so the very first admin cannot be
-created from inside the app:
+Users sign in with a mobile number and password; no SMS or email is sent for
+phone accounts. For Jordanian mobile numbers, enter 10 digits starting with
+`07`, for example `0791234567`. Spaces, parentheses, hyphens, and Arabic-Indic
+or Persian digits are accepted. International numbers are also supported:
+enter `+` followed by 7–15 digits including the country code, without the
+national trunk prefix. For example, `0791234567` and `+962791234567` identify
+the same account.
 
-1. Sign up a user (Firebase console → Authentication → Add user, or use the
-   app's "forgot password" flow after creating the user).
-2. Copy the user's **UID**.
-3. Firestore → `users` → **Add document** with id = that UID:
-   ```json
-   { "email": "you@example.com", "displayName": "Treasurer",
-     "role": "admin", "apartmentId": null, "active": true }
-   ```
-4. Sign in. From now on, invite residents from **Residents** in the app.
+Firebase's password provider requires an email-shaped identifier, so the app
+maps each number to a non-deliverable address in the reserved `.invalid`
+domain, such as `phone-962791234567@phone.building-ledger.invalid`. This is an
+internal username, not a mailbox. **A phone number is not verified by this
+scheme**: the administrator must confirm the person's identity by another
+means before sharing credentials.
+
+Administrators add residents from **Residents**, then share the displayed
+temporary password privately. It is shown only once. Residents and
+administrators can change their own password using the lock button beside
+their account in the navigation. If a password is forgotten, a project
+administrator must reset it with the local tool below; email reset links cannot
+be delivered to phone accounts. For a new project with no legacy accounts, set
+`VITE_ALLOW_LEGACY_EMAIL_LOGIN=false` before starting or building the app.
+
+Administrators can delete a resident using the trash button on **Residents**.
+After confirmation, the app deletes the resident's Firestore profile. Their
+login can still authenticate, but without a profile they cannot access building
+data. Administrator profiles and the signed-in profile cannot be deleted.
+Apartments, charges, and payments remain unchanged. Deploy the Firestore rules
+to enforce these protections.
+
+**Before reusing a deleted resident's phone number**, a project administrator
+must remove the old login manually:
+
+1. Open **Firebase Console → Authentication → Users**.
+2. Find the login by its internal username, for example
+   `phone-962791234567@phone.building-ledger.invalid` for `0791234567`.
+   Legacy accounts may still use their original email.
+3. Verify that it belongs to the removed resident, then delete that login.
+4. Add the resident again from the app if needed.
+
+The confirmation, success notice, and duplicate-phone error explain this
+manual cleanup. No Cloud Functions or Blaze plan are needed for this workflow.
+
+Firebase email/password sign-up is publicly reachable. An unapproved account
+has no building access without an administrator-created `users/{uid}` profile,
+but someone can reserve an internal username and prevent its creation or
+migration. Resolve such conflicts in Firebase Authentication only after
+checking the account and its profile; do not grant access to an unknown account.
+
+### Local administration
+
+The local tool uses the Firebase Admin SDK and must be run only by a trusted
+project administrator. It requires Node.js 22 or newer. Install the development
+dependencies with `npm install` and use Application Default Credentials with
+permission to manage Firebase Authentication users and read/write Firestore.
+For example, with the Google Cloud CLI installed:
+
+```bash
+gcloud auth application-default login
+gcloud auth application-default set-quota-project YOUR_PROJECT_ID
+```
+
+The quota project is required by Firebase Authentication when using local user
+credentials. The tool's `--project` option selects the Firebase project but does
+not configure ADC's quota project. If setting it is denied, ask a project owner
+to grant your Google account the Service Usage Consumer role, in addition to
+the Authentication and Firestore permissions above.
+
+See [Firebase Admin setup](https://firebase.google.com/docs/admin/setup) for
+other credential options. Never commit service-account credentials or temporary
+passwords. Replace `YOUR_PROJECT_ID` in the commands with the Firebase project
+ID. The commands that display a password must run in an interactive terminal;
+do not redirect their output to a file or log.
+
+**Create the first administrator** (or another administrator):
+
+```bash
+npm run users:admin -- create-admin --project YOUR_PROJECT_ID --phone 0791234567 --name "Treasurer"
+```
+
+The tool creates the Firebase Auth account and its active `users/{uid}` admin
+profile. Share the temporary password privately and sign in with the phone
+number. The administrator can then add residents in the app.
+
+**Reset a forgotten password:**
+
+```bash
+npm run users:admin -- reset --project YOUR_PROJECT_ID --phone 0791234567
+```
+
+Share the new temporary password privately and have the user change it. Firebase
+revokes the account's refresh tokens after the password change; an already
+issued ID token may remain valid until it expires.
+
+### Migrate existing email accounts
+
+Before deploying phone-only sign-in, obtain and confirm each user's unique
+phone number and record their existing Firebase Auth UID. Deploy the updated
+app first: legacy email sign-in and email password resets are enabled by default
+so existing users can continue to sign in during migration.
+
+Run the following command for each existing administrator and resident:
+
+```bash
+npm run users:admin -- migrate --project YOUR_PROJECT_ID --uid EXISTING_UID --phone 0791234567
+```
+
+The command changes the Firebase Auth identifier and records the phone number
+on the existing profile. The UID, role, apartment, and password remain the
+same; the original profile email field is retained as legacy data. Firebase
+may invalidate existing sessions or send an account-change notice to the old
+address when the identifier changes. Verify phone sign-in for the administrator
+and each resident, then set
+`VITE_ALLOW_LEGACY_EMAIL_LOGIN=false` and rebuild/deploy to disable legacy
+email sign-in. A phone already assigned to another Auth account is rejected.
+If the Auth update succeeds but the profile update fails, re-run the same
+command to finish the migration. The same command can update an already
+migrated user's phone number while keeping their UID and password.
 
 ## Local development with emulators
 
 ```bash
-npm run emulators       # auth :9099, firestore :8080, UI :4000
+npm run emulators -- --project demo-building-ledger  # auth :9099, firestore :8080, UI :4000
 # in another terminal
-VITE_USE_EMULATORS=true npm run dev
+VITE_USE_EMULATORS=true VITE_FIREBASE_API_KEY=demo-test-key \
+  VITE_FIREBASE_PROJECT_ID=demo-building-ledger VITE_FIREBASE_APP_ID=demo-test-app npm run dev
 ```
 
-The emulator UI lets you create the bootstrap `users/{uid}` document the same way
-(beware: the emulator UID must match the auth emulator user).
+Create an emulator administrator using the same local tool. Set **both**
+emulator host variables so Auth and Firestore cannot accidentally point at
+different environments:
+
+```bash
+FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
+  npm run users:admin -- create-admin --project demo-building-ledger --phone +15551234567
+```
+
+Emulator data is lost when the emulators stop unless it is exported.
 
 The emulator suite needs a JVM. On macOS:
 
@@ -92,8 +211,9 @@ back to whatever `java` is already installed).
 ## Tests
 
 ```bash
-npm test          # pure logic: money, periods, billing matrix
+npm test          # unit tests, including phone account logic
 npm run test:rules  # Firestore rules against the emulator (starts/stops it for you)
+npm run test:phone-auth # account lifecycle and access removal against Auth and Firestore
 ```
 
 `tests/billing.test.ts` covers the arithmetic that must never drift — fils
@@ -111,8 +231,14 @@ matrix including archived apartments.
   query for someone else's apartment are both rejected;
 - residents cannot write anything, cannot change their own `role`, and cannot
   reassign their own `apartmentId`;
-- admins write everywhere, invite residents, and may only create payments that
-  pass the integer/positive/string-shape validation.
+- admins manage building data, create residents, and can delete resident
+  profiles, but cannot delete their own profile or any administrator profile;
+- admins may only create payments that pass the integer/positive/string-shape validation.
+
+`tests/residentAccounts.test.ts` and `tests/residentsPage.test.ts` cover the
+profile-deletion API and administrator-only controls. The phone-account
+integration test verifies revoked access despite a retained login, phone reuse
+only after manual Auth cleanup, and preservation of apartment billing history.
 
 ## Scripts
 
@@ -122,9 +248,11 @@ matrix including archived apartments.
 | `npm run build`     | Typecheck, then production bundle into `dist/`        |
 | `npm run preview`   | Serve the built bundle locally                        |
 | `npm run typecheck` | `tsc --noEmit`                                        |
-| `npm test`          | Unit tests (billing, money, periods)                  |
-| `npm run test:rules`| Firestore rules tests (needs the emulator running)    |
+| `npm test`          | Unit tests, including phone account logic             |
+| `npm run test:rules`| Firestore rules tests (starts the emulator)           |
+| `npm run test:phone-auth` | Phone account lifecycle (starts both emulators) |
 | `npm run emulators` | Firebase emulator suite                               |
+| `npm run users:admin -- --help` | Local admin, migration, and recovery tool |
 | `npm run deploy`    | Deploy hosting + rules + indexes                      |
 
 ## Deploying
@@ -143,7 +271,7 @@ deep links such as `/periods/2026-01` and `/apartments/abc/print` work.
 ```
 settings/building            { name, address, currency, defaultLang,
                                cashOnHandMinor, cashCountedAt }
-users/{uid}                  { email, displayName, role, apartmentId, active, createdAt }
+users/{uid}                  { phone, displayName, role, apartmentId, active, createdAt, email? }
 apartments/{apartmentId}     { name, floor, number, ownerName, phone, email, archived, order, createdAt }
 services/{serviceId}         { nameEn, nameAr, archived, order, createdAt }
 periods/{periodId}           { year, month, status: draft|open|closed, notes, createdAt, closedAt,
@@ -272,6 +400,10 @@ inline script clears it only when the browser stored an explicit `light` choice,
 so there is no light flash on load. The sun/moon button in the header switches
 between the two and remembers the choice (`localStorage['theme']`); clearing site
 data puts you back on dark.
+
+The shared navigation, sign-in screen, cards, forms and tables use the same
+responsive visual system in both themes. Navigation and layouts use logical
+spacing so they also work in Arabic (RTL).
 
 The markup is written with light-theme utility classes and the dark look is a
 remap of those same utilities under `.dark` at the end of `src/index.css`

@@ -234,66 +234,73 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="min-w-0 space-y-4 lg:col-span-2">
           <SectionCard title={t('dashboard.byService')} noPadding>
             {serviceRows.length === 0 ? (
               <EmptyState icon="sliders" title={t('services.empty')} />
             ) : (
-              <table className="table-base">
-                <thead>
-                  <tr>
-                    <th className="text-start">{t('billing.service')}</th>
-                    <th className="text-end">{t('billing.charged')}</th>
-                    <th className="text-end">{t('billing.paid')}</th>
-                    <th className="text-end">{t('billing.outstanding')}</th>
-                    <th className="w-32 text-start">{t('dashboard.collectionRate')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {serviceRows.map(({ service, charged, paid, outstanding }) => (
-                    <tr key={service.id}>
-                      <td className="font-medium text-slate-700">
-                        {serviceName(service, lang)}
-                        {service.archived ? (
-                          <Badge tone="neutral" className="ms-2">
-                            {t('common.archived')}
-                          </Badge>
-                        ) : null}
-                      </td>
-                      <td className="tnum text-end text-slate-700">{formatAmount(charged, lang)}</td>
-                      <td className="tnum text-end text-emerald-700">{formatAmount(paid, lang)}</td>
-                      <td
-                        className={cn(
-                          'tnum text-end',
-                          outstanding > 0 ? 'text-rose-600' : 'text-slate-400',
-                        )}
-                      >
-                        {formatAmount(outstanding, lang)}
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200">
-                            <div
-                              className="h-full rounded-full bg-brand-500"
-                              style={{ width: `${percent(paid, charged)}%` }}
-                            />
-                          </div>
-                          <span className="tnum text-xs text-slate-500">
-                            {percent(paid, charged)}%
-                          </span>
-                        </div>
-                      </td>
+              <div
+                role="region"
+                aria-label={t('dashboard.byService')}
+                tabIndex={0}
+                className="overflow-x-auto"
+              >
+                <table className="table-base min-w-[36rem]">
+                  <thead>
+                    <tr>
+                      <th className="text-start">{t('billing.service')}</th>
+                      <th className="text-end">{t('billing.charged')}</th>
+                      <th className="text-end">{t('billing.paid')}</th>
+                      <th className="text-end">{t('billing.outstanding')}</th>
+                      <th className="w-32 text-start">{t('dashboard.collectionRate')}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {serviceRows.map(({ service, charged, paid, outstanding }) => (
+                      <tr key={service.id}>
+                        <td className="font-medium text-slate-700">
+                          {serviceName(service, lang)}
+                          {service.archived ? (
+                            <Badge tone="neutral" className="ms-2">
+                              {t('common.archived')}
+                            </Badge>
+                          ) : null}
+                        </td>
+                        <td className="tnum text-end text-slate-700">{formatAmount(charged, lang)}</td>
+                        <td className="tnum text-end text-emerald-700">{formatAmount(paid, lang)}</td>
+                        <td
+                          className={cn(
+                            'tnum text-end',
+                            outstanding > 0 ? 'text-rose-600' : 'text-slate-400',
+                          )}
+                        >
+                          {formatAmount(outstanding, lang)}
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200">
+                              <div
+                                className="h-full rounded-full bg-brand-500"
+                                style={{ width: `${percent(paid, charged)}%` }}
+                              />
+                            </div>
+                            <span className="tnum text-xs text-slate-500">
+                              {percent(paid, charged)}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </SectionCard>
 
           <SectionCard title={selectedMonth ? t('dashboard.trend') : t('dashboard.trendAll')}>
             <div className="overflow-x-auto">
-              <div className="flex h-40 min-w-full items-end justify-between gap-2">
+              <div className="flex h-44 min-w-full items-end justify-between gap-2">
                 {trendPoints.map((point) => {
                 // Heights are percentages, so the bar column must own a definite
                 // height — otherwise every bar collapses to nothing.
@@ -317,7 +324,7 @@ export function DashboardPage() {
                   >
                     <div className="flex w-full flex-1 items-end justify-center">
                       <div
-                        className="relative flex w-full max-w-[3.25rem] flex-col-reverse items-stretch overflow-hidden rounded-t bg-slate-200"
+                        className="relative flex w-full max-w-[3.25rem] flex-col-reverse items-stretch overflow-hidden rounded-t-xl bg-slate-200"
                         style={{ height: `${height}%` }}
                         title={`${t('dashboard.apartmentCharges')}: ${formatMoney(
                           point.apartmentMinor,
@@ -398,7 +405,7 @@ export function DashboardPage() {
           />
         </div>
 
-        <div className="space-y-4 self-start">
+        <div className="min-w-0 space-y-4 self-start">
           <ApartmentStats rows={view.rows} services={view.services} />
 
           <SectionCard

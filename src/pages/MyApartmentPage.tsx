@@ -8,11 +8,11 @@ import { useServices } from '@/hooks/useServices';
 import { useAuth } from '@/context/AuthContext';
 import { useI18n } from '@/context/I18nContext';
 import { useSettings } from '@/context/SettingsContext';
-import { paymentStatus, serviceName } from '@/lib/billing';
+import { paymentStatus, selectApartmentBilling, serviceName } from '@/lib/billing';
 import { formatAmount, formatMoney } from '@/lib/money';
 import { comparePeriodsDesc, currentPeriodId, periodLabel } from '@/lib/period';
 import { cn } from '@/lib/cn';
-import { PeriodNav } from '@/components/billing/PeriodNav';
+import { ALL_PERIODS, PeriodNav } from '@/components/billing/PeriodNav';
 import { PaymentStatusBadge } from '@/components/billing/StatusBadge';
 import { PaymentsList } from '@/components/billing/PaymentsList';
 import { buttonClass } from '@/components/ui/Button';
@@ -34,12 +34,15 @@ export function MyApartmentPage() {
   const { payments } = usePaymentsForApartment(apartmentId);
 
   const requested = params.get('m') ?? '';
-  const periodId = byId.has(requested) ? requested : (periods[0]?.id ?? currentPeriodId());
+  const periodId =
+    requested === ALL_PERIODS || byId.has(requested)
+      ? requested
+      : (periods[0]?.id ?? currentPeriodId());
+  const isAll = periodId === ALL_PERIODS;
 
-  const selectedAmounts = amountsByPeriod[periodId] ?? {};
-  const selectedPayments = useMemo(
-    () => payments.filter((payment) => payment.periodId === periodId),
-    [payments, periodId],
+  const { amounts: selectedAmounts, payments: selectedPayments } = useMemo(
+    () => selectApartmentBilling({ amountsByPeriod, payments, periodId: isAll ? null : periodId }),
+    [amountsByPeriod, payments, periodId, isAll],
   );
 
   const rows = useMemo(() => {
@@ -99,10 +102,20 @@ export function MyApartmentPage() {
     <>
       <PageHeader
         title={apartment?.name ?? t('my.title')}
-        subtitle={t('my.subtitle', { period: periodLabel(periodId, lang) })}
+        subtitle={
+          isAll
+            ? t('my.subtitleAll')
+            : t('my.subtitle', { period: periodLabel(periodId, lang) })
+        }
         actions={
           <>
-            <PeriodNav periodId={periodId} periods={periods} onChange={(next) => setParams({ m: next })} />
+            <PeriodNav
+              periodId={periodId}
+              periods={periods}
+              includeAll
+              allLabel={t('common.allTime')}
+              onChange={(next) => setParams({ m: next })}
+            />
             <Link to={`/my/print?m=${periodId}`} className={buttonClass('secondary', 'md')}>
               <Icon name="printer" className="h-4 w-4" />
               {t('common.printStatement')}
@@ -111,7 +124,7 @@ export function MyApartmentPage() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard
           label={t('my.charged')}
           value={formatMoney(totals.charged, settings.currency, lang)}
@@ -125,6 +138,7 @@ export function MyApartmentPage() {
           label={t('my.balance')}
           value={formatMoney(totals.outstanding, settings.currency, lang)}
           tone={totals.outstanding > 0 ? 'danger' : 'neutral'}
+          className="col-span-2 sm:col-span-1"
         />
       </div>
 
@@ -135,58 +149,65 @@ export function MyApartmentPage() {
         </div>
       ) : null}
 
-      <SectionCard title={t('my.services')} noPadding className="mb-4">
+      <SectionCard title={t(isAll ? 'my.servicesAll' : 'my.services')} noPadding className="mb-4">
         {rows.length === 0 ? (
-          <EmptyState icon="receipt" title={t('dashboard.noCharges')} />
+          <EmptyState icon="receipt" title={t(isAll ? 'my.noChargesAll' : 'dashboard.noCharges')} />
         ) : (
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="text-start">{t('billing.service')}</th>
-                <th className="text-end">{t('billing.charged')}</th>
-                <th className="text-end">{t('billing.paid')}</th>
-                <th className="text-end">{t('billing.outstanding')}</th>
-                <th className="text-center">{t('periods.status')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.service.id}>
-                  <td className="font-medium text-slate-700">{serviceName(row.service, lang)}</td>
-                  <td className="tnum text-end">{formatAmount(row.charged, lang)}</td>
-                  <td className="tnum text-end text-emerald-700">{formatAmount(row.paid, lang)}</td>
-                  <td
-                    className={cn(
-                      'tnum text-end',
-                      row.outstanding > 0 ? 'text-rose-600' : 'text-slate-400',
-                    )}
-                  >
-                    {formatAmount(row.outstanding, lang)}
-                  </td>
-                  <td className="text-center">
-                    <PaymentStatusBadge status={paymentStatus(row.charged, row.paid)} />
-                  </td>
+          <div
+            role="region"
+            aria-label={t(isAll ? 'my.servicesAll' : 'my.services')}
+            tabIndex={0}
+            className="overflow-x-auto"
+          >
+            <table className="table-base">
+              <thead>
+                <tr>
+                  <th className="text-start">{t('billing.service')}</th>
+                  <th className="text-end">{t('billing.charged')}</th>
+                  <th className="text-end">{t('billing.paid')}</th>
+                  <th className="text-end">{t('billing.outstanding')}</th>
+                  <th className="text-center">{t('periods.status')}</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td className="px-3 py-2 text-xs font-semibold uppercase text-slate-500">
-                  {t('billing.total')}
-                </td>
-                <td className="tnum px-3 py-2 text-end font-semibold">
-                  {formatAmount(totals.charged, lang)}
-                </td>
-                <td className="tnum px-3 py-2 text-end font-semibold text-emerald-700">
-                  {formatAmount(totals.paid, lang)}
-                </td>
-                <td className="tnum px-3 py-2 text-end font-semibold">
-                  {formatAmount(totals.outstanding, lang)}
-                </td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.service.id}>
+                    <td className="font-medium text-slate-700">{serviceName(row.service, lang)}</td>
+                    <td className="tnum text-end">{formatAmount(row.charged, lang)}</td>
+                    <td className="tnum text-end text-emerald-700">{formatAmount(row.paid, lang)}</td>
+                    <td
+                      className={cn(
+                        'tnum text-end',
+                        row.outstanding > 0 ? 'text-rose-600' : 'text-slate-400',
+                      )}
+                    >
+                      {formatAmount(row.outstanding, lang)}
+                    </td>
+                    <td className="text-center">
+                      <PaymentStatusBadge status={paymentStatus(row.charged, row.paid)} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td className="px-3 py-2 text-xs font-semibold uppercase text-slate-500">
+                    {t('billing.total')}
+                  </td>
+                  <td className="tnum px-3 py-2 text-end font-semibold">
+                    {formatAmount(totals.charged, lang)}
+                  </td>
+                  <td className="tnum px-3 py-2 text-end font-semibold text-emerald-700">
+                    {formatAmount(totals.paid, lang)}
+                  </td>
+                  <td className="tnum px-3 py-2 text-end font-semibold">
+                    {formatAmount(totals.outstanding, lang)}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         )}
       </SectionCard>
 

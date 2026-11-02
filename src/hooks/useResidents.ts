@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { onSnapshot } from 'firebase/firestore';
 import { usersCol } from '@/firebase/collections';
+import { userDisplayName } from '@/lib/users';
 import type { AppUser } from '@/types/models';
 
 export function useResidents() {
@@ -15,7 +16,7 @@ export function useResidents() {
         const list = snapshot.docs.map((d) => d.data());
         list.sort((a, b) => {
           if (a.role !== b.role) return a.role === 'admin' ? -1 : 1;
-          return (a.displayName || a.email).localeCompare(b.displayName || b.email);
+          return userDisplayName(a).localeCompare(userDisplayName(b));
         });
         setUsers(list);
         setLoading(false);

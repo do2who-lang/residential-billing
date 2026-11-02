@@ -1,54 +1,69 @@
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { Timestamp, setDoc } from 'firebase/firestore';
-import { auth, withSecondaryAuth } from '@/firebase/config';
+import { createUserWithEmailAndPassword, deleteUser } from 'firebase/auth';
+import { Timestamp, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { withSecondaryAuth } from '@/firebase/config';
 import { userRawRef } from '@/firebase/collections';
+import {
+  formatPhoneNumber,
+  normalizePhoneNumber,
+  phoneAuthEmail,
+  temporaryPassword,
+  TEMPORARY_PASSWORD_BYTES,
+} from '@/lib/phoneAuth';
 import type { Role } from '@/types/models';
 
-export interface InviteInput {
-  email: string;
+export interface CreateResidentInput {
+  phone: string;
   displayName: string;
   apartmentId: string | null;
 }
 
-function temporaryPassword(): string {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#%&';
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
+export interface ResidentCredentials {
+  uid: string;
+  phone: string;
+  password: string;
 }
 
-/**
- * Creates a resident account without disturbing the admin's own session.
- *
- * The Auth user is created on a *secondary* Firebase app instance, the Firestore
- * profile document is written by the signed-in admin (so the new account never
- * gets write access), and finally Firebase sends the "set your password" email.
- */
-export async function inviteResident(input: InviteInput): Promise<string> {
-  const email = input.email.trim().toLowerCase();
+class ResidentAccountCleanupError extends Error {
+  readonly code = 'app/user-cleanup-failed';
 
-  const uid = await withSecondaryAuth(async (secondaryAuth) => {
+  constructor(profileError: unknown, cleanupError: unknown) {
+    super('Could not create the profile or remove the new authentication account.', {
+      cause: new AggregateError([profileError, cleanupError]),
+    });
+    this.name = 'ResidentAccountCleanupError';
+  }
+}
+
+export async function createResident(input: CreateResidentInput): Promise<ResidentCredentials> {
+  const phone = normalizePhoneNumber(input.phone);
+  const bytes = crypto.getRandomValues(new Uint8Array(TEMPORARY_PASSWORD_BYTES));
+  const password = temporaryPassword(bytes);
+
+  return withSecondaryAuth(async (secondaryAuth) => {
     const credential = await createUserWithEmailAndPassword(
       secondaryAuth,
-      email,
-      temporaryPassword(),
+      phoneAuthEmail(phone),
+      password,
     );
-    return credential.user.uid;
+    try {
+      await setDoc(userRawRef(credential.user.uid), {
+        phone,
+        displayName: input.displayName.trim() || formatPhoneNumber(phone),
+        role: 'resident' satisfies Role,
+        apartmentId: input.apartmentId,
+        active: true,
+        createdAt: Timestamp.now(),
+      });
+    } catch (profileError) {
+      try {
+        await deleteUser(credential.user);
+      } catch (cleanupError) {
+        throw new ResidentAccountCleanupError(profileError, cleanupError);
+      }
+      throw profileError;
+    }
+    return { uid: credential.user.uid, phone, password };
   });
-
-  await setDoc(userRawRef(uid), {
-    email,
-    displayName: input.displayName.trim(),
-    role: 'resident' satisfies Role,
-    apartmentId: input.apartmentId,
-    active: true,
-    createdAt: Timestamp.now(),
-  });
-
-  // Does not touch the admin's session — it only queues an email.
-  await sendPasswordResetEmail(auth, email);
-
-  return uid;
 }
 
 export interface ResidentPatch {
@@ -65,5 +80,9 @@ export async function updateResident(uid: string, patch: ResidentPatch): Promise
   if (patch.active !== undefined) data.active = patch.active;
   if (patch.role !== undefined) data.role = patch.role;
   if (Object.keys(data).length === 0) return;
-  await setDoc(userRawRef(uid), data, { merge: true });
+  await updateDoc(userRawRef(uid), data);
+}
+
+export async function deleteResident(uid: string): Promise<void> {
+  await deleteDoc(userRawRef(uid));
 }

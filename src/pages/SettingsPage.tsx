@@ -4,7 +4,9 @@ import { useSettings } from '@/context/SettingsContext';
 import { useAuth } from '@/context/AuthContext';
 import { errorKey } from '@/lib/errors';
 import { parseAmount, toInputValue } from '@/lib/money';
+import { formatPhoneNumber } from '@/lib/phoneAuth';
 import { countedAtInputValue, resolveCountedAt } from '@/lib/treasury';
+import { userIdentifier } from '@/lib/users';
 import { Button } from '@/components/ui/Button';
 import { Banner } from '@/components/ui/Feedback';
 import { Field, Select, TextInput } from '@/components/ui/FormControls';
@@ -160,13 +162,15 @@ export function SettingsPage() {
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-slate-500">{t('residents.displayName')}</dt>
                 <dd className="truncate font-medium text-slate-800">
-                  {profile?.displayName || '—'}
+                  {profile?.displayName ? formatPhoneNumber(profile.displayName) : '—'}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-slate-500">{t('residents.email')}</dt>
+                <dt className="text-slate-500">
+                  {t(profile?.phone ? 'residents.phone' : 'residents.email')}
+                </dt>
                 <dd className="truncate font-medium text-slate-800" dir="ltr">
-                  {profile?.email}
+                  {userIdentifier(profile) || '—'}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">

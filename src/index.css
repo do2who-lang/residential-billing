@@ -44,23 +44,24 @@
   }
 
   .dark :focus-visible {
-    --tw-ring-offset-color: #020617;
+    --tw-ring-offset-color: #0a1115;
   }
 }
 
 @layer components {
   .card {
-    @apply rounded-xl border border-slate-200 bg-white shadow-card;
+    @apply rounded-2xl border border-slate-200 bg-white shadow-card;
   }
 
   .label {
-    @apply mb-1.5 block text-sm font-medium text-slate-700;
+    @apply mb-1.5 block text-sm font-semibold text-slate-700;
   }
 
   .input {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900
            placeholder:text-slate-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500
-           disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
+           disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500
+           transition-[border-color,box-shadow];
   }
 
   .table-base {
@@ -69,16 +70,81 @@
 
   .table-base thead th {
     @apply sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50/95
-           px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500
+           px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500
            backdrop-blur;
   }
 
   .table-base tbody td {
-    @apply border-b border-slate-100 px-3 py-2 align-middle;
+    @apply border-b border-slate-100 px-4 py-3 align-middle;
   }
 
   .table-base tbody tr:hover {
     @apply bg-slate-50/60;
+  }
+
+  .app-canvas {
+    background-color: #f4f7f5;
+  }
+
+  .app-sidebar {
+    border-color: #e2ebe6;
+    background-color: #fff;
+  }
+
+  .app-topbar {
+    border-color: #e2ebe6;
+    background-color: rgb(255 255 255 / 0.86);
+  }
+
+  .app-brand-mark {
+    background: linear-gradient(145deg, #379775, #1d5b48);
+    box-shadow: 0 8px 18px -8px rgb(35 107 86 / 0.65);
+  }
+
+  .app-nav-active {
+    background-color: #e8f4ee;
+    color: #1d614b;
+    box-shadow: inset 0 0 0 1px rgb(35 107 86 / 0.08);
+  }
+
+  .app-account {
+    border: 1px solid #e6ede9;
+    background-color: #f7f9f8;
+  }
+
+  .treasury-card {
+    border-color: #d1e8dc;
+    background: linear-gradient(115deg, #edf8f1 0%, #f9fcfa 68%, #fff 100%);
+  }
+
+  .login-page {
+    background:
+      radial-gradient(ellipse at 10% 5%, rgb(91 171 129 / 0.16), transparent 32rem),
+      radial-gradient(ellipse at 95% 95%, rgb(138 190 168 / 0.13), transparent 32rem),
+      #f4f7f5;
+  }
+
+  .login-panel {
+    border: 1px solid #e2ebe6;
+    background-color: #fff;
+    box-shadow: 0 28px 80px -36px rgb(15 45 32 / 0.25);
+  }
+
+  .login-hero {
+    background: linear-gradient(145deg, #194c3f 0%, #133c35 55%, #102d2b 100%);
+  }
+
+  .login-hero::after {
+    position: absolute;
+    inset-block-start: -10rem;
+    inset-inline-end: -8rem;
+    width: 23rem;
+    height: 23rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 9999px;
+    box-shadow: 0 0 0 3.5rem rgb(255 255 255 / 0.025), 0 0 0 7rem rgb(255 255 255 / 0.025);
+    content: '';
+    pointer-events: none;
   }
 }
 
@@ -144,44 +210,48 @@
 @media screen {
   /* the page itself (base layer colours are inlined by @apply) */
   .dark body {
-    background-color: #020617;
+    background-color: #0a1115;
     color: #e2e8f0;
   }
 
   /* surfaces */
   .dark .bg-white {
-    background-color: #0f172a;
+    background-color: #111e21;
   }
   .dark .bg-white\/90 {
-    background-color: rgb(15 23 42 / 0.9);
+    background-color: rgb(17 30 33 / 0.9);
   }
   .dark .bg-slate-50 {
-    background-color: #020617;
+    background-color: #0a1115;
+  }
+  .dark .bg-slate-50\/80,
+  .dark .bg-slate-50\/90 {
+    background-color: rgb(10 17 21 / 0.9);
   }
   .dark .bg-slate-100 {
-    background-color: #1e293b;
+    background-color: #1c2b2f;
   }
   .dark .bg-slate-200 {
-    background-color: #334155;
+    background-color: #304146;
   }
   .dark .bg-slate-800 {
-    background-color: #1e293b;
+    background-color: #1c2b2f;
   }
 
   /* borders, dividers, rings */
   .dark .border-slate-100,
   .dark .border-slate-200,
   .dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
-    border-color: #1e293b;
+    border-color: #27383c;
   }
   .dark .border-slate-300 {
-    border-color: #334155;
+    border-color: #35494d;
   }
   .dark .border-slate-400 {
     border-color: #475569;
   }
   .dark .ring-slate-200 {
-    --tw-ring-color: #1e293b;
+    --tw-ring-color: #27383c;
   }
 
   /* text */
@@ -301,18 +371,18 @@
      so they need their own remap (otherwise the sidebar flashes white). */
   .dark .hover\:bg-slate-100:hover,
   .dark .active\:bg-slate-100:active {
-    background-color: #1e293b;
+    background-color: #1c2b2f;
   }
   .dark .active\:bg-slate-200:active {
-    background-color: #334155;
+    background-color: #304146;
   }
   .dark .hover\:bg-slate-50:hover,
   .dark .group:hover .group-hover\:bg-slate-50 {
-    background-color: rgb(30 41 59 / 0.7);
+    background-color: rgb(28 43 47 / 0.7);
   }
   .dark .hover\:bg-white:hover,
   .dark .focus\:bg-white:focus {
-    background-color: #1e293b;
+    background-color: #1c2b2f;
   }
   .dark .hover\:text-slate-900:hover {
     color: #f1f5f9;
@@ -357,33 +427,70 @@
 
   /* component classes (their colours are inlined by @apply) */
   .dark .card {
-    border-color: #1e293b;
-    background-color: #0f172a;
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.5);
-  }  .dark .label {
+    border-color: #27383c;
+    background-color: #111e21;
+    box-shadow: 0 12px 30px -20px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.14);
+  }
+  .dark .label {
     color: #cbd5e1;
   }
   .dark .input {
-    border-color: #334155;
-    background-color: #0f172a;
+    border-color: #35494d;
+    background-color: #111e21;
     color: #f1f5f9;
   }
   .dark .input::placeholder {
     color: #64748b;
   }
   .dark .input:disabled {
-    background-color: #1e293b;
+    background-color: #1c2b2f;
     color: #94a3b8;
   }
   .dark .table-base thead th {
-    border-color: #1e293b;
-    background-color: rgb(15 23 42 / 0.95);
+    border-color: #27383c;
+    background-color: rgb(17 30 33 / 0.95);
     color: #94a3b8;
   }
   .dark .table-base tbody td {
-    border-color: #1e293b;
+    border-color: #27383c;
   }
   .dark .table-base tbody tr:hover {
-    background-color: rgb(30 41 59 / 0.5);
+    background-color: rgb(28 43 47 / 0.5);
+  }
+
+  .dark .app-canvas {
+    background-color: #0a1115;
+  }
+  .dark .app-sidebar {
+    border-color: #27383c;
+    background-color: #0e1a1d;
+  }
+  .dark .app-topbar {
+    border-color: #27383c;
+    background-color: rgb(14 26 29 / 0.88);
+  }
+  .dark .app-nav-active {
+    background-color: rgb(47 134 107 / 0.2);
+    color: #b4e1cf;
+    box-shadow: inset 0 0 0 1px rgb(124 191 169 / 0.12);
+  }
+  .dark .app-account {
+    border-color: #293d3f;
+    background-color: #152427;
+  }
+  .dark .treasury-card {
+    border-color: #315a4b;
+    background: linear-gradient(115deg, #18372e 0%, #142a26 55%, #111e21 100%);
+  }
+  .dark .login-page {
+    background:
+      radial-gradient(ellipse at 10% 5%, rgb(47 134 107 / 0.16), transparent 32rem),
+      radial-gradient(ellipse at 95% 95%, rgb(47 134 107 / 0.08), transparent 32rem),
+      #0a1115;
+  }
+  .dark .login-panel {
+    border-color: #27383c;
+    background-color: #111e21;
+    box-shadow: 0 28px 80px -36px rgb(0 0 0 / 0.7);
   }
 }

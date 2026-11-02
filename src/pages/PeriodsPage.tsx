@@ -10,6 +10,7 @@ import { errorKey } from '@/lib/errors';
 import { formatMoney, percent } from '@/lib/money';
 import { currentPeriodId, periodLabel } from '@/lib/period';
 import { cn } from '@/lib/cn';
+import { userIdentifier } from '@/lib/users';
 import { PeriodStatusBadge } from '@/components/billing/StatusBadge';
 import { Button, buttonClass } from '@/components/ui/Button';
 import { ConfirmDialog, Modal } from '@/components/ui/Modal';
@@ -236,7 +237,7 @@ export function PeriodsPage() {
       />
 
       <p className="mt-3 text-xs text-slate-400">
-        {profile?.email} · {settings.currency}
+        {userIdentifier(profile)} · {settings.currency}
       </p>
     </>
   );

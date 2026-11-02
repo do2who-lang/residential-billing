@@ -69,35 +69,39 @@ export function AvailableBalanceCard() {
 
   return (
     <>
-      <div className="card border-brand-200 bg-brand-50/50 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-brand-800">
-              <Icon name="wallet" className="h-3.5 w-3.5" />
-              {t('treasury.title')}
-            </p>
-            <p className="tnum mt-2 text-2xl font-semibold text-brand-900 sm:text-3xl">
-              {formatMoney(summary.availableMinor, settings.currency, lang)}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-brand-800/80">
-              {summary.unset
-                ? t('treasury.notSet')
-                : t('treasury.breakdown', {
-                    counted: formatMoney(summary.countedMinor, settings.currency, lang),
-                    date: countedAtInputValue(summary.countedAt),
-                    since: formatMoney(summary.collectedSinceMinor, settings.currency, lang),
-                  })}
-            </p>
-            {summary.spentMinor > 0 ? (
-              <p className="mt-1 text-xs leading-relaxed text-rose-700">
-                {t('treasury.spent', {
-                  amount: formatMoney(summary.spentMinor, settings.currency, lang),
-                })}
+      <div className="card treasury-card p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-4">
+            <span className="app-brand-mark flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white">
+              <Icon name="wallet" className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-800">
+                {t('treasury.title')}
               </p>
-            ) : null}
-            {notice ? (
-              <p className="mt-1.5 text-xs font-medium text-emerald-700">{notice}</p>
-            ) : null}
+              <p className="tnum mt-2 break-words text-2xl font-semibold tracking-tight text-brand-900 sm:text-3xl">
+                {formatMoney(summary.availableMinor, settings.currency, lang)}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-brand-800/80">
+                {summary.unset
+                  ? t('treasury.notSet')
+                  : t('treasury.breakdown', {
+                      counted: formatMoney(summary.countedMinor, settings.currency, lang),
+                      date: countedAtInputValue(summary.countedAt),
+                      since: formatMoney(summary.collectedSinceMinor, settings.currency, lang),
+                    })}
+              </p>
+              {summary.spentMinor > 0 ? (
+                <p className="mt-1 text-xs leading-relaxed text-rose-700">
+                  {t('treasury.spent', {
+                    amount: formatMoney(summary.spentMinor, settings.currency, lang),
+                  })}
+                </p>
+              ) : null}
+              {notice ? (
+                <p className="mt-1.5 text-xs font-medium text-emerald-700">{notice}</p>
+              ) : null}
+            </div>
           </div>
           <Button variant="secondary" size="sm" icon="pencil" onClick={() => setOpen(true)}>
             {t('treasury.edit')}

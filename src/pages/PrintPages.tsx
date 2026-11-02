@@ -10,8 +10,9 @@ import { useServices } from '@/hooks/useServices';
 import { useAuth } from '@/context/AuthContext';
 import { useI18n } from '@/context/I18nContext';
 import { useSettings } from '@/context/SettingsContext';
-import { computeBilling } from '@/lib/billing';
+import { computeBilling, selectApartmentBilling } from '@/lib/billing';
 import { currentPeriodId } from '@/lib/period';
+import { ALL_PERIODS } from '@/components/billing/PeriodNav';
 import { ApartmentStatement, BuildingStatement } from '@/components/print/StatementDocument';
 import { Button, buttonClass } from '@/components/ui/Button';
 import { EmptyState, LoadingBlock } from '@/components/ui/Feedback';
@@ -89,10 +90,20 @@ export function PrintApartmentPage({ apartmentId: explicitId }: PrintApartmentPr
   const { payments } = usePaymentsForApartment(apartmentId);
 
   const requested = search.get('m') ?? '';
-  const periodId = byId.has(requested) ? requested : (periods[0]?.id ?? currentPeriodId());
+  const periodId =
+    requested === ALL_PERIODS || byId.has(requested)
+      ? requested
+      : (periods[0]?.id ?? currentPeriodId());
 
-  const amounts = amountsByPeriod[periodId] ?? {};
-  const periodPayments = payments.filter((payment) => payment.periodId === periodId);
+  const { amounts, payments: periodPayments } = useMemo(
+    () =>
+      selectApartmentBilling({
+        amountsByPeriod,
+        payments,
+        periodId: periodId === ALL_PERIODS ? null : periodId,
+      }),
+    [amountsByPeriod, payments, periodId],
+  );
 
   const cells = useMemo(() => {
     const paidServiceIds = new Set(periodPayments.map((payment) => payment.serviceId));

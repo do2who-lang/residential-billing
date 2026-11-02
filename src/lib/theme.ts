@@ -24,7 +24,7 @@ export function applyTheme(theme: Theme): void {
   root.style.colorScheme = theme;
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute('content', theme === 'dark' ? '#020617' : '#236b56');
+    ?.setAttribute('content', theme === 'dark' ? '#0a1115' : '#f4f7f5');
 }
 
 export function storeTheme(theme: Theme): void {

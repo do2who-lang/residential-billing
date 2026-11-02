@@ -1,5 +1,11 @@
 import { initializeApp, getApps, getApp, deleteApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
+import {
+  getAuth,
+  connectAuthEmulator,
+  inMemoryPersistence,
+  setPersistence,
+  type Auth,
+} from 'firebase/auth';
 import {
   initializeFirestore,
   connectFirestoreEmulator,
@@ -9,6 +15,7 @@ import {
 } from 'firebase/firestore';
 
 const USE_EMULATORS = import.meta.env.VITE_USE_EMULATORS === 'true';
+export const allowLegacyEmailLogin = import.meta.env.VITE_ALLOW_LEGACY_EMAIL_LOGIN !== 'false';
 
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
@@ -60,7 +67,7 @@ if (USE_EMULATORS) {
  * own session is never signed out. The app is deleted as soon as the account exists.
  */
 export async function withSecondaryAuth<T>(run: (secondaryAuth: Auth) => Promise<T>): Promise<T> {
-  const name = `invite-${Date.now()}`;
+  const name = `resident-${crypto.randomUUID()}`;
   const secondary = initializeApp(
     {
       apiKey: firebaseConfig.apiKey ?? '',
@@ -71,8 +78,17 @@ export async function withSecondaryAuth<T>(run: (secondaryAuth: Auth) => Promise
     name,
   );
   try {
-    return await run(getAuth(secondary));
+    const secondaryAuth = getAuth(secondary);
+    if (USE_EMULATORS) {
+      connectAuthEmulator(secondaryAuth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    }
+    await setPersistence(secondaryAuth, inMemoryPersistence);
+    return await run(secondaryAuth);
   } finally {
-    await deleteApp(secondary).catch(() => undefined);
+    try {
+      await deleteApp(secondary);
+    } catch (error) {
+      console.error('Could not clean up the secondary Firebase app.', error);
+    }
   }
 }

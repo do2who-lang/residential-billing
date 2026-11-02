@@ -60,7 +60,9 @@ service cloud.firestore {
       allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
       allow create: if isAdmin();
       allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin()
+        && request.auth.uid != uid
+        && resource.data.role == 'resident';
     }
 
     // ------------------------------------------------------------- apartments

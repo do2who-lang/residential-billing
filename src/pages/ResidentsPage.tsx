@@ -3,50 +3,57 @@ import { useApartments } from '@/hooks/useApartments';
 import { useResidents } from '@/hooks/useResidents';
 import { useI18n } from '@/context/I18nContext';
 import { useAuth } from '@/context/AuthContext';
-import { inviteResident, updateResident } from '@/api/users';
+import { createResident, deleteResident, updateResident, type ResidentCredentials } from '@/api/users';
 import { errorKey } from '@/lib/errors';
 import { formatDate } from '@/lib/period';
+import { formatPhoneNumber } from '@/lib/phoneAuth';
+import { userDisplayName } from '@/lib/users';
 import { cn } from '@/lib/cn';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog, Modal } from '@/components/ui/Modal';
 import { Banner, EmptyState, ErrorBlock, LoadingBlock } from '@/components/ui/Feedback';
 import { Field, Select, TextInput } from '@/components/ui/FormControls';
 import { Icon } from '@/components/ui/Icon';
 import { PageHeader } from '@/components/ui/Page';
+import type { AppUser } from '@/types/models';
 
 export function ResidentsPage() {
   const { t, lang } = useI18n();
-  const { profile } = useAuth();
+  const { profile, isAdmin } = useAuth();
   const { users, loading, error } = useResidents();
   const { active: apartments } = useApartments();
 
   const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [apartmentId, setApartmentId] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const [credentials, setCredentials] = useState<ResidentCredentials | null>(null);
+  const [toDelete, setToDelete] = useState<AppUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const handleInvite = async () => {
-    if (!email.trim()) {
-      setFormError(t('residents.emailRequired'));
+  const handleCreate = async () => {
+    if (!phone.trim()) {
+      setFormError(t('residents.phoneRequired'));
       return;
     }
     try {
       setSaving(true);
       setFormError(null);
-      await inviteResident({
-        email,
-        displayName: displayName.trim() || email.split('@')[0],
+      const created = await createResident({
+        phone,
+        displayName,
         apartmentId: apartmentId || null,
       });
       setOpen(false);
-      setEmail('');
+      setPhone('');
       setDisplayName('');
       setApartmentId('');
-      setNotice({ tone: 'success', text: t('residents.inviteSent', { email: email.trim() }) });
+      setNotice(null);
+      setCredentials(created);
     } catch (err) {
       setFormError(t(errorKey(err)));
     } finally {
@@ -67,6 +74,22 @@ export function ResidentsPage() {
       await updateResident(uid, { active: !active });
     } catch (err) {
       setNotice({ tone: 'error', text: t(errorKey(err)) });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!toDelete || deleting) return;
+    try {
+      setDeleting(true);
+      setNotice(null);
+      await deleteResident(toDelete.uid);
+      setToDelete(null);
+      setNotice({ tone: 'success', text: t('residents.deleted') });
+    } catch (err) {
+      setToDelete(null);
+      setNotice({ tone: 'error', text: t(errorKey(err)) });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -100,7 +123,7 @@ export function ResidentsPage() {
               <thead>
                 <tr>
                   <th className="text-start">{t('residents.displayName')}</th>
-                  <th className="text-start">{t('residents.email')}</th>
+                  <th className="text-start">{t('residents.phone')}</th>
                   <th className="text-start">{t('residents.role')}</th>
                   <th className="text-start">{t('residents.apartment')}</th>
                   <th className="text-center">{t('residents.status')}</th>
@@ -114,15 +137,21 @@ export function ResidentsPage() {
                   return (
                     <tr key={user.uid} className={cn(!user.active && 'opacity-60')}>
                       <td className="font-medium text-slate-800">
-                        {user.displayName || user.email.split('@')[0]}
+                        {userDisplayName(user) || '—'}
                         {isSelf ? (
                           <span className="ms-2 text-[10px] uppercase text-slate-400">
                             {t('common.you')}
                           </span>
                         ) : null}
                       </td>
-                      <td className="text-slate-600" dir="ltr">
-                        {user.email}
+                      <td className="text-slate-600">
+                        {user.phone ? (
+                          <span dir="ltr">{formatPhoneNumber(user.phone)}</span>
+                        ) : user.email ? (
+                          t('residents.legacyEmail', { email: user.email })
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td>
                         <Badge tone={user.role === 'admin' ? 'brand' : 'neutral'}>
@@ -135,6 +164,7 @@ export function ResidentsPage() {
                         {isResident ? (
                           <Select
                             value={user.apartmentId ?? ''}
+                            disabled={deleting && toDelete?.uid === user.uid}
                             onChange={(event) => void handleAssign(user.uid, event.target.value)}
                             className="min-w-[10rem]"
                             aria-label={t('residents.apartment')}
@@ -159,10 +189,10 @@ export function ResidentsPage() {
                         </p>
                       </td>
                       <td>
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
-                            disabled={isSelf}
+                            disabled={isSelf || (deleting && toDelete?.uid === user.uid)}
                             onClick={() => void handleToggleActive(user.uid, user.active)}
                             className={cn(
                               'rounded-md p-1.5 transition-colors',
@@ -176,6 +206,18 @@ export function ResidentsPage() {
                           >
                             <Icon name={user.active ? 'lock' : 'refresh'} className="h-4 w-4" />
                           </button>
+                          {isAdmin && isResident && !isSelf ? (
+                            <button
+                              type="button"
+                              disabled={deleting}
+                              onClick={() => setToDelete(user)}
+                              className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                              title={t('residents.delete')}
+                              aria-label={t('residents.delete')}
+                            >
+                              <Icon name="trash" className="h-4 w-4" />
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -189,9 +231,24 @@ export function ResidentsPage() {
 
       <p className="mt-3 text-xs text-slate-500">{t('residents.selfNote')}</p>
 
+      <ConfirmDialog
+        open={toDelete !== null}
+        title={t('residents.delete')}
+        message={t('residents.deleteConfirm', { name: toDelete ? userDisplayName(toDelete) : '' })}
+        confirmLabel={t('action.delete')}
+        destructive
+        loading={deleting}
+        onConfirm={() => void handleDelete()}
+        onCancel={() => {
+          if (!deleting) setToDelete(null);
+        }}
+      />
+
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          if (!saving) setOpen(false);
+        }}
         title={t('residents.new')}
         description={t('residents.subtitle')}
         footer={
@@ -199,7 +256,7 @@ export function ResidentsPage() {
             <Button variant="secondary" onClick={() => setOpen(false)} disabled={saving}>
               {t('action.cancel')}
             </Button>
-            <Button onClick={handleInvite} loading={saving} icon="users">
+            <Button onClick={handleCreate} loading={saving} icon="users">
               {t('residents.new')}
             </Button>
           </>
@@ -207,14 +264,15 @@ export function ResidentsPage() {
       >
         <div className="space-y-4">
           {formError ? <Banner tone="error">{formError}</Banner> : null}
-          <Field label={t('residents.email')} htmlFor="resident-email" required>
+          <Field label={t('residents.phone')} htmlFor="resident-phone" hint={t('auth.phoneHint')} required>
             <TextInput
-              id="resident-email"
-              type="email"
+              id="resident-phone"
+              type="tel"
+              autoComplete="tel"
               dir="ltr"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="resident@example.com"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="0791234567"
             />
           </Field>
           <Field label={t('residents.displayName')} htmlFor="resident-name">
@@ -242,6 +300,35 @@ export function ResidentsPage() {
               ))}
             </Select>
           </Field>
+        </div>
+      </Modal>
+
+      <Modal
+        open={credentials !== null}
+        onClose={() => setCredentials(null)}
+        title={t('residents.credentialsTitle')}
+        description={t('residents.credentialsDescription')}
+        footer={<Button onClick={() => setCredentials(null)}>{t('action.close')}</Button>}
+      >
+        <div className="space-y-4">
+          <Field label={t('residents.phone')} htmlFor="created-resident-phone">
+            <TextInput
+              id="created-resident-phone"
+              dir="ltr"
+              readOnly
+              value={formatPhoneNumber(credentials?.phone ?? '')}
+            />
+          </Field>
+          <Field label={t('residents.temporaryPassword')} htmlFor="created-resident-password">
+            <TextInput
+              id="created-resident-password"
+              dir="ltr"
+              readOnly
+              value={credentials?.password ?? ''}
+              onFocus={(event) => event.currentTarget.select()}
+            />
+          </Field>
+          <p className="text-sm text-slate-500">{t('residents.credentialsHint')}</p>
         </div>
       </Modal>
     </>

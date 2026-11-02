@@ -3,6 +3,7 @@ import { formatAmount, formatMoney } from '@/lib/money';
 import { formatDate, periodLabel } from '@/lib/period';
 import { serviceName, type BillingView, type CellBilling } from '@/lib/billing';
 import { cn } from '@/lib/cn';
+import { ALL_PERIODS } from '@/components/billing/PeriodNav';
 import type { Apartment, BuildingSettings, Payment, Service } from '@/types/models';
 
 function StatementHeader({
@@ -25,7 +26,9 @@ function StatementHeader({
       </div>
       <div className="text-end">
         <p className="text-sm font-semibold text-slate-900">{title}</p>
-        <p className="tnum text-xs text-slate-600">{periodLabel(periodId, lang)}</p>
+        <p className="tnum text-xs text-slate-600">
+          {periodId === ALL_PERIODS ? t('common.allTime') : periodLabel(periodId, lang)}
+        </p>
         <p className="text-xs text-slate-500">
           {t('statement.generated', { date: formatDate(new Date(), lang) })}
         </p>
@@ -209,7 +212,7 @@ export function ApartmentStatement({
       </div>
 
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-        {t('my.services')}
+        {t(periodId === ALL_PERIODS ? 'my.servicesAll' : 'my.services')}
       </h2>
       <table className="w-full border-collapse text-[11px]">
         <thead>

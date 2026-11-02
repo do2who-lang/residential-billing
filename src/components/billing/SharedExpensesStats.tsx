@@ -144,43 +144,50 @@ export function SharedExpensesStats({
         <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
           {t('shared.statsByService')}
         </p>
-        <table className="table-base">
-          <thead>
-            <tr>
-              <th className="text-start">{t('billing.service')}</th>
-              <th className="text-end">{t('shared.total')}</th>
-              <th className="text-end">{t('shared.statsPerApartment')}</th>
-              <th className="w-32 text-start">{t('shared.statsShare')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {stats.byService.map((row) => {
-              const share = percent(row.totalMinor, stats.totalMinor);
-              return (
-                <tr key={row.id}>
-                  <td className="font-medium text-slate-700">{row.name}</td>
-                  <td className="tnum text-end text-amber-700">{money(row.totalMinor)}</td>
-                  <td className="tnum text-end text-slate-500">
-                    {apartmentCount > 0
-                      ? money(Math.round(row.totalMinor / apartmentCount))
-                      : '—'}
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200">
-                        <div
-                          className="h-full rounded-full bg-amber-400"
-                          style={{ width: `${share}%` }}
-                        />
+        <div
+          role="region"
+          aria-label={t('shared.statsByService')}
+          tabIndex={0}
+          className="overflow-x-auto"
+        >
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th className="text-start">{t('billing.service')}</th>
+                <th className="text-end">{t('shared.total')}</th>
+                <th className="text-end">{t('shared.statsPerApartment')}</th>
+                <th className="w-32 text-start">{t('shared.statsShare')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.byService.map((row) => {
+                const share = percent(row.totalMinor, stats.totalMinor);
+                return (
+                  <tr key={row.id}>
+                    <td className="font-medium text-slate-700">{row.name}</td>
+                    <td className="tnum text-end text-amber-700">{money(row.totalMinor)}</td>
+                    <td className="tnum text-end text-slate-500">
+                      {apartmentCount > 0
+                        ? money(Math.round(row.totalMinor / apartmentCount))
+                        : '—'}
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200">
+                          <div
+                            className="h-full rounded-full bg-amber-400"
+                            style={{ width: `${share}%` }}
+                          />
+                        </div>
+                        <span className="tnum text-xs text-slate-500">{share}%</span>
                       </div>
-                      <span className="tnum text-xs text-slate-500">{share}%</span>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
         {apartmentCount > 0 ? (
           <p className="mt-2 text-[11px] text-slate-400">
             {t('shared.statsPerApartmentHint', { count: apartmentCount })}

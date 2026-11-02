@@ -11,6 +11,7 @@ import {
 import {
   collection,
   collectionGroup,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -220,10 +221,59 @@ describe('admin', () => {
     );
     await assertSucceeds(updateDoc(doc(db, 'users', NEW_RESIDENT), { active: false }));
   });
+
+  it('deletes active and inactive resident profiles without deleting apartment history', async () => {
+    const db = adminDb();
+    const historyRefs = [
+      doc(db, 'apartments/apt-1'),
+      doc(db, 'periods/2026-01/charges/apt-1'),
+      doc(db, 'payments/pay-1'),
+    ];
+    const before = await Promise.all(historyRefs.map(async (reference) => (await getDoc(reference)).data()));
+    await assertSucceeds(deleteDoc(doc(db, 'users', RESIDENT_1)));
+    await assertSucceeds(deleteDoc(doc(db, 'users', INACTIVE)));
+    expect((await getDoc(doc(db, 'users', RESIDENT_1))).exists()).toBe(false);
+    expect((await getDoc(doc(db, 'users', INACTIVE))).exists()).toBe(false);
+    for (const [index, reference] of historyRefs.entries()) {
+      expect((await getDoc(reference)).data()).toEqual(before[index]);
+    }
+    expect((await getDoc(doc(resident1Db(), 'users', RESIDENT_1))).exists()).toBe(false);
+    await assertFails(getDoc(doc(resident1Db(), 'apartments/apt-1')));
+    await assertFails(getDoc(doc(resident1Db(), 'payments/pay-1')));
+    await assertFails(setDoc(doc(resident1Db(), 'users', RESIDENT_1), {
+      role: 'resident',
+      active: true,
+      apartmentId: 'apt-1',
+    }));
+  });
+
+  it('protects the signed-in profile and other administrator profiles', async () => {
+    await assertFails(deleteDoc(doc(adminDb(), 'users', ADMIN)));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', 'other-admin'), { role: 'admin', active: true });
+    });
+    await assertFails(deleteDoc(doc(adminDb(), 'users', 'other-admin')));
+  });
+
+  it('rejects deletion by anonymous, profileless, and inactive administrator accounts', async () => {
+    await assertFails(deleteDoc(doc(anonDb(), 'users', RESIDENT_1)));
+    await assertFails(deleteDoc(doc(noProfileDb(), 'users', RESIDENT_1)));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', ADMIN), {
+        active: false,
+      });
+    });
+    await assertFails(deleteDoc(doc(adminDb(), 'users', RESIDENT_1)));
+  });
 });
 
 describe('resident', () => {
   beforeEach(seed);
+
+  it('cannot delete its own profile or another account', async () => {
+    await assertFails(deleteDoc(doc(resident1Db(), 'users', RESIDENT_1)));
+    await assertFails(deleteDoc(doc(resident1Db(), 'users', RESIDENT_2)));
+  });
 
   it('reads its own apartment but not the neighbours', async () => {
     await assertSucceeds(getDoc(doc(resident1Db(), 'apartments/apt-1')));

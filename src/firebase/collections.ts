@@ -80,6 +80,7 @@ export const settingsConverter: FirestoreDataConverter<BuildingSettings> = {
 export function userFromSnap(uid: string, data: Record<string, unknown>): AppUser {
   return {
     uid,
+    phone: str(data.phone),
     email: str(data.email),
     displayName: str(data.displayName),
     role: data.role === 'admin' ? 'admin' : 'resident',
@@ -92,6 +93,7 @@ export function userFromSnap(uid: string, data: Record<string, unknown>): AppUse
 export const userConverter: FirestoreDataConverter<AppUser> = {
   toFirestore(user) {
     return {
+      phone: user.phone,
       email: user.email,
       displayName: user.displayName,
       role: user.role,

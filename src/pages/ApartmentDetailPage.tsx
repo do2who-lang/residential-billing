@@ -250,60 +250,67 @@ export function ApartmentDetailPage() {
         ) : selectedServices.length === 0 ? (
           <EmptyState icon="receipt" title={t('dashboard.noCharges')} />
         ) : (
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="text-start">{t('billing.service')}</th>
-                <th className="text-end">{t('billing.charged')}</th>
-                <th className="text-end">{t('billing.paid')}</th>
-                <th className="text-end">{t('billing.outstanding')}</th>
-                <th className="text-center">{t('periods.status')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {selectedServices.map((service) => {
-                const cell = selectedCells[service.id];
-                const status = paymentStatus(cell?.chargedMinor ?? 0, cell?.paidMinor ?? 0);
-                return (
-                  <tr key={service.id}>
-                    <td className="font-medium text-slate-700">{serviceName(service, lang)}</td>
-                    <td className="tnum text-end">{formatAmount(cell?.chargedMinor ?? 0, lang)}</td>
-                    <td className="tnum text-end text-emerald-700">
-                      {formatAmount(cell?.paidMinor ?? 0, lang)}
-                    </td>
-                    <td
-                      className={cn(
-                        'tnum text-end',
-                        (cell?.outstandingMinor ?? 0) > 0 ? 'text-rose-600' : 'text-slate-400',
-                      )}
-                    >
-                      {formatAmount(cell?.outstandingMinor ?? 0, lang)}
-                    </td>
-                    <td className="text-center">
-                      <PaymentStatusBadge status={status} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td className="px-3 py-2 text-xs font-semibold uppercase text-slate-500">
-                  {t('billing.total')}
-                </td>
-                <td className="tnum px-3 py-2 text-end font-semibold">
-                  {formatAmount(selectedTotals.chargedMinor, lang)}
-                </td>
-                <td className="tnum px-3 py-2 text-end font-semibold text-emerald-700">
-                  {formatAmount(selectedTotals.paidMinor, lang)}
-                </td>
-                <td className="tnum px-3 py-2 text-end font-semibold">
-                  {formatAmount(selectedTotals.outstandingMinor, lang)}
-                </td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
+          <div
+            role="region"
+            aria-label={t('my.services')}
+            tabIndex={0}
+            className="overflow-x-auto"
+          >
+            <table className="table-base">
+              <thead>
+                <tr>
+                  <th className="text-start">{t('billing.service')}</th>
+                  <th className="text-end">{t('billing.charged')}</th>
+                  <th className="text-end">{t('billing.paid')}</th>
+                  <th className="text-end">{t('billing.outstanding')}</th>
+                  <th className="text-center">{t('periods.status')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedServices.map((service) => {
+                  const cell = selectedCells[service.id];
+                  const status = paymentStatus(cell?.chargedMinor ?? 0, cell?.paidMinor ?? 0);
+                  return (
+                    <tr key={service.id}>
+                      <td className="font-medium text-slate-700">{serviceName(service, lang)}</td>
+                      <td className="tnum text-end">{formatAmount(cell?.chargedMinor ?? 0, lang)}</td>
+                      <td className="tnum text-end text-emerald-700">
+                        {formatAmount(cell?.paidMinor ?? 0, lang)}
+                      </td>
+                      <td
+                        className={cn(
+                          'tnum text-end',
+                          (cell?.outstandingMinor ?? 0) > 0 ? 'text-rose-600' : 'text-slate-400',
+                        )}
+                      >
+                        {formatAmount(cell?.outstandingMinor ?? 0, lang)}
+                      </td>
+                      <td className="text-center">
+                        <PaymentStatusBadge status={status} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td className="px-3 py-2 text-xs font-semibold uppercase text-slate-500">
+                    {t('billing.total')}
+                  </td>
+                  <td className="tnum px-3 py-2 text-end font-semibold">
+                    {formatAmount(selectedTotals.chargedMinor, lang)}
+                  </td>
+                  <td className="tnum px-3 py-2 text-end font-semibold text-emerald-700">
+                    {formatAmount(selectedTotals.paidMinor, lang)}
+                  </td>
+                  <td className="tnum px-3 py-2 text-end font-semibold">
+                    {formatAmount(selectedTotals.outstandingMinor, lang)}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         )}
       </SectionCard>
 
