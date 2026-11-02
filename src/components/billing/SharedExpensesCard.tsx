@@ -80,7 +80,8 @@ export function SharedExpensesCard({
     <SectionCard
       title={t('shared.title')}
       description={t('shared.description')}
-      className="mb-4"
+      className="mb-4 [&>header]:py-2.5"
+      noPadding
     >
       <div className="divide-y divide-slate-100">
         {services.map((service) => {
@@ -90,11 +91,11 @@ export function SharedExpensesCard({
           return (
             <div
               key={service.id}
-              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              className="flex flex-wrap items-center justify-between gap-2 px-4 py-2"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 sm:flex sm:items-baseline sm:gap-2">
                 <p className="truncate text-sm font-medium text-slate-800">{name}</p>
-                <p className="mt-0.5 text-xs text-slate-500">
+                <p className="text-xs text-slate-500">
                   {totalMinor > 0 ? t('shared.deducted') : t('shared.notSet')}
                 </p>
               </div>
@@ -112,15 +113,16 @@ export function SharedExpensesCard({
         })}
       </div>
 
-      <div className="border-t border-slate-100 px-4 py-3">
-        <label htmlFor={noteId} className="label">
+      <div className="border-t border-slate-100 px-4 py-2">
+        <label htmlFor={noteId} className="mb-1 block text-xs font-semibold text-slate-700">
           {t('shared.comments')}
         </label>
         <Textarea
           id={noteId}
           ref={noteRef}
           value={note}
-          rows={2}
+          rows={1}
+          className="min-h-0 resize-y rounded-lg px-3 py-1.5 focus:min-h-20"
           maxLength={500}
           disabled={!editable || savingNote}
           placeholder={t('shared.commentsPlaceholder')}

@@ -1,3 +1,5 @@
+import type { Period } from '@/types/models';
+
 /**
  * Billing periods are identified by `YYYY-MM` (e.g. "2026-11"), which doubles as
  * the Firestore document id and sorts correctly as a string.
@@ -63,6 +65,17 @@ export function periodLabel(id: string, locale = 'en', style: 'long' | 'short' =
 /** Descending sort helper: newest period first. */
 export function comparePeriodsDesc(a: string, b: string): number {
   return a < b ? 1 : a > b ? -1 : 0;
+}
+
+export function groupPeriodsByYear(periods: Period[]): [number, Period[]][] {
+  const groups = new Map<number, Period[]>();
+  const sorted = [...periods].sort((a, b) => comparePeriodsDesc(a.id, b.id));
+  for (const period of sorted) {
+    const group = groups.get(period.year);
+    if (group) group.push(period);
+    else groups.set(period.year, [period]);
+  }
+  return Array.from(groups);
 }
 
 export function formatDate(date: Date | null, locale = 'en'): string {

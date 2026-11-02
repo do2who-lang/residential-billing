@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { createPeriod, deletePeriod } from '@/api/periods';
 import { errorKey } from '@/lib/errors';
 import { formatMoney, percent } from '@/lib/money';
-import { currentPeriodId, periodLabel } from '@/lib/period';
+import { currentPeriodId, groupPeriodsByYear, periodLabel } from '@/lib/period';
 import { cn } from '@/lib/cn';
 import { userIdentifier } from '@/lib/users';
 import { PeriodStatusBadge } from '@/components/billing/StatusBadge';
@@ -35,6 +35,8 @@ export function PeriodsPage() {
 
   const [toDelete, setToDelete] = useState<Period | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const periodsByYear = useMemo(() => groupPeriodsByYear(periods), [periods]);
 
   const trendIds = useMemo(() => periods.slice(0, 24).map((period) => period.id), [periods]);
   const { points } = useTrend(trendIds);
@@ -116,69 +118,80 @@ export function PeriodsPage() {
                   <th className="w-24" />
                 </tr>
               </thead>
-              <tbody>
-                {periods.map((period) => {
-                  const totals = totalsByPeriod[period.id];
-                  const rate = totals ? percent(totals.collected, totals.charged) : 0;
-                  return (
-                    <tr key={period.id}>
-                      <td>
-                        <Link
-                          to={`/periods/${period.id}`}
-                          className="font-medium text-slate-800 hover:text-brand-700"
-                        >
-                          {periodLabel(period.id, lang)}
-                        </Link>
-                        {period.notes ? (
-                          <p className="max-w-xs truncate text-xs text-slate-400">{period.notes}</p>
-                        ) : null}
-                      </td>
-                      <td>
-                        <PeriodStatusBadge status={period.status} />
-                      </td>
-                      <td className="tnum text-end text-slate-700">
-                        {totals ? formatMoney(totals.charged, settings.currency, lang) : '—'}
-                      </td>
-                      <td className="tnum text-end text-emerald-700">
-                        {totals ? formatMoney(totals.collected, settings.currency, lang) : '—'}
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
-                            <div
-                              className={cn(
-                                'h-full rounded-full',
-                                rate >= 100 ? 'bg-emerald-500' : 'bg-brand-500',
-                              )}
-                              style={{ width: `${Math.min(100, rate)}%` }}
-                            />
-                          </div>
-                          <span className="tnum text-xs text-slate-500">{rate}%</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="flex items-center justify-end gap-1">
+              {periodsByYear.map(([year, yearPeriods]) => (
+                <tbody key={year} aria-label={String(year)}>
+                  <tr>
+                    <th
+                      colSpan={6}
+                      scope="rowgroup"
+                      className="border-y border-slate-200 bg-slate-50 px-4 py-2 text-start text-sm font-semibold text-slate-700"
+                    >
+                      <h2 className="tnum">{year}</h2>
+                    </th>
+                  </tr>
+                  {yearPeriods.map((period) => {
+                    const totals = totalsByPeriod[period.id];
+                    const rate = totals ? percent(totals.collected, totals.charged) : 0;
+                    return (
+                      <tr key={period.id}>
+                        <td>
                           <Link
                             to={`/periods/${period.id}`}
-                            className={buttonClass('ghost', 'sm', 'px-2')}
-                            title={t('periods.view')}
+                            className="font-medium text-slate-800 hover:text-brand-700"
                           >
-                            <Icon name="arrow-right" className="h-4 w-4 rtl:rotate-180" />
+                            {periodLabel(period.id, lang)}
                           </Link>
-                          <button
-                            type="button"
-                            onClick={() => setToDelete(period)}
-                            className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
-                            title={t('periods.deleteMonth')}
-                          >
-                            <Icon name="trash" className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
+                          {period.notes ? (
+                            <p className="max-w-xs truncate text-xs text-slate-400">{period.notes}</p>
+                          ) : null}
+                        </td>
+                        <td>
+                          <PeriodStatusBadge status={period.status} />
+                        </td>
+                        <td className="tnum text-end text-slate-700">
+                          {totals ? formatMoney(totals.charged, settings.currency, lang) : '—'}
+                        </td>
+                        <td className="tnum text-end text-emerald-700">
+                          {totals ? formatMoney(totals.collected, settings.currency, lang) : '—'}
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
+                              <div
+                                className={cn(
+                                  'h-full rounded-full',
+                                  rate >= 100 ? 'bg-emerald-500' : 'bg-brand-500',
+                                )}
+                                style={{ width: `${Math.min(100, rate)}%` }}
+                              />
+                            </div>
+                            <span className="tnum text-xs text-slate-500">{rate}%</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="flex items-center justify-end gap-1">
+                            <Link
+                              to={`/periods/${period.id}`}
+                              className={buttonClass('ghost', 'sm', 'px-2')}
+                              title={t('periods.view')}
+                            >
+                              <Icon name="arrow-right" className="h-4 w-4 rtl:rotate-180" />
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => setToDelete(period)}
+                              className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                              title={t('periods.deleteMonth')}
+                            >
+                              <Icon name="trash" className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              ))}
             </table>
           </div>
         )}

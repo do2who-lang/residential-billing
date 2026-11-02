@@ -1,5 +1,5 @@
 import { useI18n } from '@/context/I18nContext';
-import { periodLabel, parsePeriodId } from '@/lib/period';
+import { groupPeriodsByYear, periodLabel, parsePeriodId } from '@/lib/period';
 import { cn } from '@/lib/cn';
 import { Icon } from '@/components/ui/Icon';
 import type { Period } from '@/types/models';
@@ -44,7 +44,7 @@ export function PeriodNav({
     onChange(next);
   };
 
-  const options = periods.length ? periods : isAll ? [] : [{ id: periodId } as Period];
+  const periodsByYear = groupPeriodsByYear(periods);
 
   return (
     <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
@@ -74,10 +74,14 @@ export function PeriodNav({
           {!isAll && !periods.some((period) => period.id === periodId) ? (
             <option value={periodId}>{periodLabel(periodId, lang)}</option>
           ) : null}
-          {options.map((period) => (
-            <option key={period.id} value={period.id}>
-              {periodLabel(period.id, lang)}
-            </option>
+          {periodsByYear.map(([year, yearPeriods]) => (
+            <optgroup key={year} label={String(year)}>
+              {yearPeriods.map((period) => (
+                <option key={period.id} value={period.id}>
+                  {periodLabel(period.id, lang)}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <Icon
