@@ -38,7 +38,7 @@ export const en = {
   'auth.heroDescription': 'Bring monthly billing, payments, and shared expenses together in one place.',
   'auth.email': 'Email',
   'auth.phone': 'Mobile number',
-  'auth.phoneOrEmail': 'Mobile number or legacy email',
+  'auth.phoneOrEmail': 'Mobile number',
   'auth.phoneHint': 'For Jordanian numbers, enter 10 digits starting with 07, for example 0791234567.',
   'auth.password': 'Password',
   'auth.forgot': 'Forgot your password?',
@@ -125,7 +125,7 @@ export const en = {
   'billing.recordPayment': 'Record payment',
   'billing.payRemaining': 'Pay remaining',
   'billing.cellHint':
-    'Click an amount to edit it — what you enter counts as paid. Click the paid figure to change its payment.',
+    'Click an amount to edit it — what you enter counts as paid. Click the paid amount to edit its receipt. Use the check or X beside it to mark the service paid or unpaid.',
 
   'payments.title': 'Payments',
   'payments.new': 'Record a payment',
@@ -142,9 +142,17 @@ export const en = {
   'payments.deleteConfirm': 'Delete this payment? The balance will be recalculated.',
   'payments.deleted': 'Payment deleted.',
   'payments.edit': 'Edit payment',
+  'payments.markPaid': 'Mark as paid',
+  'payments.markUnpaid': 'Mark as unpaid (delete all receipts)',
+  'payments.markedPaid': 'Service marked paid. The remaining balance was recorded as a payment.',
+  'payments.cellMarkedUnpaid': 'Service marked unpaid. All receipts were removed; the billed amount is unchanged.',
   'payments.editTitle': 'Edit payment',
   'payments.editHint':
-    'Correct the amount, the date, the method or the note. The apartment and the service stay the same.',
+    'Correct the status, amount, date, method or note. The apartment and the service stay the same.',
+  'payments.status': 'Payment status',
+  'payments.unpaidHint':
+    'Choosing Unpaid removes this receipt, not the billed amount. Other payments still count toward the bill.',
+  'payments.markedUnpaid': 'Payment marked unpaid. The receipt was removed; the billed amount is unchanged.',
   'payments.updated': 'Payment updated.',
   'payments.none': 'No payments recorded.',
   'payments.overpay': 'This exceeds the outstanding balance ({amount}).',

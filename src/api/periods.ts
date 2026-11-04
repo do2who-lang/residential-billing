@@ -4,10 +4,8 @@ import {
   deleteField,
   getDoc,
   getDocs,
-  query,
   setDoc,
   updateDoc,
-  where,
   writeBatch,
   type FieldValue,
 } from 'firebase/firestore';
@@ -17,14 +15,12 @@ import {
   chargesCol,
   db,
   paymentRawRef,
-  paymentsRawCol,
   periodDocRef,
   periodRawRef,
 } from '@/firebase/collections';
 import { parsePeriodId } from '@/lib/period';
-import { cellPaymentId } from '@/lib/cellPayments';
 import { sharedPaymentId } from '@/lib/sharedExpensePayments';
-import type { PaymentMethod, Period, PeriodStatus } from '@/types/models';
+import type { Period, PeriodStatus } from '@/types/models';
 
 export async function createPeriod(id: string, notes = ''): Promise<void> {
   const { year, month } = parsePeriodId(id);
@@ -137,40 +133,19 @@ export async function clearSharedLeftovers(
  * received values, so the UI can report it. Shared totals are copied too, so the
  * new month's expense — and its place in the available balance — carries over.
  *
- * What was already settled comes along as well: a cell that was paid last month
- * gets a matching payment here, so the rows do not silently fall back to
- * *Unpaid* after a copy. Partially paid cells keep their partial amount.
+ * Receipts are never copied: new charges start unpaid. Any payments already
+ * recorded in the target month are left untouched.
  */
 export async function copyAmountsFrom(
   sourceId: string,
   targetId: string,
-  recordedBy = '',
 ): Promise<number> {
-  const [source, sourcePeriod, sourcePayments] = await Promise.all([
+  const [source, sourcePeriod] = await Promise.all([
     getDocs(chargesCol(sourceId)),
     getDoc(periodRawRef(sourceId)),
-    getDocs(query(paymentsRawCol(), where('periodId', '==', sourceId))),
   ]);
 
-  // How much of each cell was settled in the source month.
-  const paidByCell = new Map<string, { amountMinor: number; method: PaymentMethod }>();
-  sourcePayments.forEach((docSnap) => {
-    const raw = docSnap.data();
-    const apartmentId = String(raw.apartmentId ?? '');
-    const serviceId = String(raw.serviceId ?? '');
-    const amountMinor = Number(raw.amountMinor ?? 0);
-    if (!apartmentId || !serviceId || amountMinor <= 0) return;
-
-    const key = `${apartmentId}__${serviceId}`;
-    const seen = paidByCell.get(key);
-    paidByCell.set(key, {
-      amountMinor: (seen?.amountMinor ?? 0) + amountMinor,
-      method: (seen?.method ?? raw.method ?? 'bank') as PaymentMethod,
-    });
-  });
-
   const batch = writeBatch(db);
-  const now = Timestamp.now();
   let copied = 0;
 
   source.forEach((docSnap) => {
@@ -179,23 +154,6 @@ export async function copyAmountsFrom(
     if (!hasAmount) return;
     batch.set(chargeDocRef(targetId, charge.apartmentId), charge);
     copied += 1;
-
-    for (const [serviceId, amount] of Object.entries(charge.amountsMinor)) {
-      const settled = paidByCell.get(`${charge.apartmentId}__${serviceId}`);
-      if (!settled || !amount || amount <= 0 || settled.amountMinor <= 0) continue;
-
-      batch.set(paymentRawRef(cellPaymentId(targetId, charge.apartmentId, serviceId)), {
-        periodId: targetId,
-        apartmentId: charge.apartmentId,
-        serviceId,
-        amountMinor: Math.min(Math.round(settled.amountMinor), Math.round(amount)),
-        paidAt: now,
-        method: settled.method,
-        note: '',
-        recordedBy,
-        createdAt: now,
-      });
-    }
   });
 
   const rawShared = sourcePeriod.data()?.sharedAmountsMinor;

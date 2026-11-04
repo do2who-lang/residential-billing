@@ -41,7 +41,7 @@ export const ar: Partial<Record<TranslationKey, string>> = {
   'auth.heroDescription': 'اجمع الفواتير الشهرية والدفعات والمصاريف المشتركة في مكان واحد.',
   'auth.email': 'البريد الإلكتروني',
   'auth.phone': 'رقم الهاتف المحمول',
-  'auth.phoneOrEmail': 'رقم الهاتف المحمول أو البريد الإلكتروني السابق',
+  'auth.phoneOrEmail': 'رقم الهاتف المحمول',
   'auth.phoneHint': 'أدخل رقم هاتف أردنيًا من 10 أرقام يبدأ بـ 07، مثل 0791234567.',
   'auth.password': 'كلمة المرور',
   'auth.forgot': 'نسيت كلمة المرور؟',
@@ -127,7 +127,7 @@ export const ar: Partial<Record<TranslationKey, string>> = {
   'billing.recordPayment': 'تسجيل دفعة',
   'billing.payRemaining': 'تسديد المتبقي',
   'billing.cellHint':
-    'اضغط على المبلغ لتعديله — وما تُدخله يُحتسب مدفوعاً. اضغط على المبلغ المدفوع لتعديل دفعته.',
+    'اضغط على المبلغ لتعديله — وما تُدخله يُحتسب مدفوعاً. اضغط على المبلغ المدفوع لتعديل دفعته، أو استخدم علامتي الصح أو الإلغاء بجانبه لتحديد الخدمة كمدفوعة أو غير مدفوعة.',
 
   'payments.title': 'الدفعات',
   'payments.new': 'تسجيل دفعة',
@@ -144,9 +144,17 @@ export const ar: Partial<Record<TranslationKey, string>> = {
   'payments.deleteConfirm': 'حذف هذه الدفعة؟ سيُعاد احتساب الرصيد.',
   'payments.deleted': 'تم حذف الدفعة.',
   'payments.edit': 'تعديل الدفعة',
+  'payments.markPaid': 'تحديد كمدفوع',
+  'payments.markUnpaid': 'تحديد كغير مدفوع (حذف جميع الدفعات)',
+  'payments.markedPaid': 'تم تحديد الخدمة كمدفوعة. سُجل الرصيد المتبقي كدفعة.',
+  'payments.cellMarkedUnpaid': 'تم تحديد الخدمة كغير مدفوعة. حُذفت جميع الدفعات ولم يتغير المبلغ المستحق.',
   'payments.editTitle': 'تعديل الدفعة',
   'payments.editHint':
-    'صحّح المبلغ أو التاريخ أو طريقة الدفع أو الملاحظة. تبقى الشقة والخدمة كما هما.',
+    'صحّح الحالة أو المبلغ أو التاريخ أو طريقة الدفع أو الملاحظة. تبقى الشقة والخدمة كما هما.',
+  'payments.status': 'حالة الدفع',
+  'payments.unpaidHint':
+    'اختيار غير مسدد يحذف هذه الدفعة فقط ولا يغيّر المبلغ المستحق. تبقى الدفعات الأخرى محسوبة ضمن الفاتورة.',
+  'payments.markedUnpaid': 'تم تحديد الدفعة كغير مسددة وحذفها. لم يتغير المبلغ المستحق.',
   'payments.updated': 'تم تحديث الدفعة.',
   'payments.none': 'لا توجد دفعات مسجلة.',
   'payments.overpay': 'المبلغ يتجاوز الرصيد المتبقي ({amount}).',

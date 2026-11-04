@@ -5,7 +5,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { formatAmount, formatMoney, parseAmount, toInputValue } from '@/lib/money';
 import { serviceName, type CellBilling } from '@/lib/billing';
 import { toDateInputValue, fromDateInputValue } from '@/lib/period';
-import { recordPayment, recordPayments, updatePayment, type PaymentInput } from '@/api/payments';
+import { deletePayment, recordPayment, recordPayments, updatePayment, type PaymentInput } from '@/api/payments';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Field, Select, TextInput } from '@/components/ui/FormControls';
@@ -23,7 +23,7 @@ interface PaymentDialogProps {
   serviceId: string | null;
   /** An existing payment to correct; when set, the dialog updates instead of creating. */
   editing?: Payment | null;
-  onRecorded: (count: number, mode: 'created' | 'updated') => void;
+  onRecorded: (count: number, mode: 'created' | 'updated' | 'deleted') => void;
 }
 
 export function PaymentDialog({
@@ -55,10 +55,12 @@ export function PaymentDialog({
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<'paid' | 'unpaid'>('paid');
 
   // Reset the form every time the dialog opens.
   useEffect(() => {
     if (!open) return;
+    setStatus('paid');
     if (editing) {
       setSelectedService(editing.serviceId);
       setAmount(toInputValue(editing.amountMinor));
@@ -83,9 +85,13 @@ export function PaymentDialog({
   const remainingMinor = cells[selectedService]?.outstandingMinor ?? 0;
   const amountMinor = parseAmount(amount);
   const remainingTotal = payable.reduce((sum, service) => sum + (cells[service.id]?.outstandingMinor ?? 0), 0);
+  const markingUnpaid = editing !== null && status === 'unpaid';
 
   const handleSubmit = async () => {
-    if (!apartment || !profile) return;
+    if (!apartment || !profile) {
+      setError(t('errors.permission'));
+      return;
+    }
 
     const date = fromDateInputValue(paidAt) ?? new Date();
     const base = {
@@ -102,6 +108,12 @@ export function PaymentDialog({
       setError(null);
 
       if (editing) {
+        if (markingUnpaid) {
+          await deletePayment(editing.id);
+          onRecorded(1, 'deleted');
+          onClose();
+          return;
+        }
         if (amountMinor === null || amountMinor <= 0) {
           setError(t('payments.invalidAmount'));
           setSaving(false);
@@ -171,7 +183,7 @@ export function PaymentDialog({
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             {t('action.cancel')}
           </Button>
-          <Button onClick={handleSubmit} loading={saving} icon="check">
+          <Button onClick={handleSubmit} loading={saving} icon="check" variant={markingUnpaid ? 'danger' : 'primary'}>
             {t('action.save')}
           </Button>
         </>
@@ -230,6 +242,29 @@ export function PaymentDialog({
               )}
             </Field>
 
+            {editing ? (
+              <Field
+                label={t('payments.status')}
+                htmlFor="payment-status"
+                hint={t('payments.unpaidHint')}
+                className="sm:col-span-2"
+              >
+                <Select
+                  id="payment-status"
+                  value={status}
+                  disabled={saving}
+                  onChange={(event) => {
+                    if (event.target.value === 'paid' || event.target.value === 'unpaid') {
+                      setStatus(event.target.value);
+                    }
+                  }}
+                >
+                  <option value="paid">{t('billing.paidFull')}</option>
+                  <option value="unpaid">{t('billing.unpaid')}</option>
+                </Select>
+              </Field>
+            ) : null}
+
             <Field
               label={t('payments.amount')}
               htmlFor="payment-amount"
@@ -244,6 +279,7 @@ export function PaymentDialog({
                 dir="ltr"
                 className="tnum text-end"
                 value={amount}
+                disabled={markingUnpaid || saving}
                 onChange={(event) => setAmount(event.target.value)}
                 placeholder="0.000"
               />
@@ -256,6 +292,7 @@ export function PaymentDialog({
             <Select
               id="payment-method"
               value={method}
+              disabled={markingUnpaid || saving}
               onChange={(event) => setMethod(event.target.value as PaymentMethod)}
             >
               <option value="bank">{t('payments.bank')}</option>
@@ -269,6 +306,7 @@ export function PaymentDialog({
               id="payment-date"
               type="date"
               value={paidAt}
+              disabled={markingUnpaid || saving}
               onChange={(event) => setPaidAt(event.target.value)}
             />
           </Field>
@@ -277,13 +315,14 @@ export function PaymentDialog({
             <TextInput
               id="payment-note"
               value={note}
+              disabled={markingUnpaid || saving}
               onChange={(event) => setNote(event.target.value)}
               placeholder={t('common.optional')}
             />
           </Field>
         </div>
 
-        {!isRemainingMode && amountMinor !== null && amountMinor > remainingMinor && remainingMinor > 0 ? (
+        {!markingUnpaid && !isRemainingMode && amountMinor !== null && amountMinor > remainingMinor && remainingMinor > 0 ? (
           <Banner tone="info">
             {t('payments.overpay', { amount: formatMoney(remainingMinor, settings.currency, lang) })}
           </Banner>

@@ -14,7 +14,7 @@ import { periodLabel, shiftPeriodId } from '@/lib/period';
 import { errorKey } from '@/lib/errors';
 import { setChargeAmount } from '@/api/charges';
 import { clearSharedLeftovers, copyAmountsFrom, setPeriodStatus } from '@/api/periods';
-import { deletePayment, setCellPayment } from '@/api/payments';
+import { deletePayment, deletePayments, recordPayment, setCellPayment } from '@/api/payments';
 import { cellPaymentId } from '@/lib/cellPayments';
 import { BillingGrid } from '@/components/billing/BillingGrid';
 import { PaymentDialog } from '@/components/billing/PaymentDialog';
@@ -54,6 +54,11 @@ export function PeriodDetailPage() {
   const [toEdit, setToEdit] = useState<Payment | null>(null);
   const [toDelete, setToDelete] = useState<Payment | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pendingPaymentCell, setPendingPaymentCell] = useState<{
+    apartmentId: string;
+    serviceId: string;
+  } | null>(null);
+  const paymentActionPending = useRef(false);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -147,10 +152,64 @@ export function PeriodDetailPage() {
     if (apartment) setTarget({ apartment, serviceId });
   };
 
+  const handleMarkCellPaid = async (apartmentId: string, serviceId: string) => {
+    const cell = view.rows.find((row) => row.apartment.id === apartmentId)?.cells[serviceId];
+    if (!cell || cell.chargedMinor <= 0 || cell.outstandingMinor <= 0) return;
+    if (paymentActionPending.current) return;
+    if (!profile) {
+      setNotice({ tone: 'error', text: t('errors.permission') });
+      return;
+    }
+
+    try {
+      paymentActionPending.current = true;
+      setPendingPaymentCell({ apartmentId, serviceId });
+      await recordPayment({
+        periodId,
+        apartmentId,
+        serviceId,
+        amountMinor: cell.outstandingMinor,
+        paidAt: new Date(),
+        method: 'bank',
+        note: '',
+        recordedBy: profile.uid,
+      });
+      setNotice({ tone: 'success', text: t('payments.markedPaid') });
+    } catch (err) {
+      setNotice({ tone: 'error', text: t(errorKey(err)) });
+    } finally {
+      paymentActionPending.current = false;
+      setPendingPaymentCell(null);
+    }
+  };
+
+  const handleMarkCellUnpaid = async (apartmentId: string, serviceId: string) => {
+    const cellPayments = payments.filter(
+      (payment) =>
+        payment.periodId === periodId &&
+        payment.apartmentId === apartmentId &&
+        payment.serviceId === serviceId,
+    );
+    if (cellPayments.length === 0) return;
+    if (paymentActionPending.current) return;
+
+    try {
+      paymentActionPending.current = true;
+      setPendingPaymentCell({ apartmentId, serviceId });
+      await deletePayments(cellPayments.map((payment) => payment.id));
+      setNotice({ tone: 'success', text: t('payments.cellMarkedUnpaid') });
+    } catch (err) {
+      setNotice({ tone: 'error', text: t(errorKey(err)) });
+    } finally {
+      paymentActionPending.current = false;
+      setPendingPaymentCell(null);
+    }
+  };
+
   const handleCopyPrevious = async () => {
     try {
       setBusy(true);
-      const copied = await copyAmountsFrom(previousPeriodId, periodId, profile?.uid ?? '');
+      const copied = await copyAmountsFrom(previousPeriodId, periodId);
       setNotice({
         tone: 'success',
         text: t('periods.cloned', { period: periodLabel(previousPeriodId, lang) }) + ` (${copied})`,
@@ -324,6 +383,13 @@ export function PeriodDetailPage() {
               if (apartment) setTarget({ apartment, serviceId });
             }}
             onPaidClick={handlePaidClick}
+            onMarkCellPaid={(apartmentId, serviceId) =>
+              void handleMarkCellPaid(apartmentId, serviceId)
+            }
+            onMarkCellUnpaid={(apartmentId, serviceId) =>
+              void handleMarkCellUnpaid(apartmentId, serviceId)
+            }
+            paymentActionPending={pendingPaymentCell !== null}
             onPayRemaining={(apartmentId) => {
               const apartment = apartments.find((item) => item.id === apartmentId);
               if (apartment) setTarget({ apartment, serviceId: null });
@@ -378,7 +444,11 @@ export function PeriodDetailPage() {
         onRecorded={(count, mode) =>
           setNotice({
             tone: 'success',
-            text: mode === 'updated' ? t('payments.updated') : `${t('payments.created')} (${count})`,
+            text: mode === 'deleted'
+              ? t('payments.markedUnpaid')
+              : mode === 'updated'
+                ? t('payments.updated')
+                : `${t('payments.created')} (${count})`,
           })
         }
       />

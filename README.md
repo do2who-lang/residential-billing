@@ -8,12 +8,20 @@ records the payments as they come in — everything is live and printable.
 - **Dynamic services** — water, sewage, cleaning, generator, elevator… anything
   you bill for (`3` services today, `7` next year, no code changes).
 - **Monthly periods** — one `YYYY-MM` document per month, with `draft → open →
-  closed` lifecycle and "copy last month's amounts" helpers. Monthly billing is
+  closed` lifecycle and "copy last month's amounts" helpers. Copying transfers
+  billed amounts and shared expenses, never payment receipts: new charges start
+  unpaid, while receipts already in the target month remain unchanged. Monthly billing is
   grouped by year, with the newest years and months first. Month selectors on
   the dashboard and apartment pages also group their options by year.
 - **Payments per service** — partial payments, `cash | bank | other`, dates, notes,
   and every row can be corrected (amount, date, method, note) or deleted — the
-  balance is recalculated instantly.
+  balance is recalculated instantly. In **Edit payment**, choose **Unpaid** to
+  remove that receipt without changing the billed amount. Other receipts still
+  count toward the bill, so it may remain partially or fully paid.
+- **Inline payment status** — use the check and X icons in a monthly billing
+  service cell to record its remaining balance as paid or remove all its receipts
+  to mark it unpaid (the billed amount stays unchanged), without opening the
+  payment editor.
 - **Type-to-pay grid** — an amount typed into the monthly grid is recorded as paid
   in the same step; clicking the paid figure reopens it for a correction.
 - **Shared expenses** — mark a service as building-wide and enter one total per

@@ -14,6 +14,9 @@ interface BillingGridProps {
   onRecordPayment: (apartmentId: string, serviceId: string) => void;
   /** Clicking the paid figure of a cell — edit the payment that produced it. */
   onPaidClick: (apartmentId: string, serviceId: string) => void;
+  onMarkCellPaid: (apartmentId: string, serviceId: string) => void;
+  onMarkCellUnpaid: (apartmentId: string, serviceId: string) => void;
+  paymentActionPending: boolean;
   onPayRemaining: (apartmentId: string) => void;
   onOpenApartment: (apartmentId: string) => void;
 }
@@ -27,6 +30,9 @@ export function BillingGrid({
   onAmountChange,
   onRecordPayment,
   onPaidClick,
+  onMarkCellPaid,
+  onMarkCellUnpaid,
+  paymentActionPending,
   onPayRemaining,
   onOpenApartment,
 }: BillingGridProps) {
@@ -129,6 +135,7 @@ export function BillingGrid({
                   const charged = cell?.chargedMinor ?? 0;
                   const paid = cell?.paidMinor ?? 0;
                   const outstanding = cell?.outstandingMinor ?? 0;
+                  const pending = paymentActionPending;
                   const canPay = editable && outstanding > 0;
 
                   return (
@@ -136,35 +143,75 @@ export function BillingGrid({
                       <div className="flex flex-col">
                         <AmountCell
                           valueMinor={charged}
-                          disabled={!editable}
+                          disabled={!editable || pending}
                           ariaLabel={`${apartment.name} — ${serviceName(service, lang)}`}
                           onCommit={(minor) => onAmountChange(apartment.id, service.id, minor)}
                         />
-                        {paid > 0 ? (
-                          <button
-                            type="button"
-                            disabled={!editable}
-                            onClick={() => onPaidClick(apartment.id, service.id)}
-                            title={editable ? t('payments.edit') : undefined}
-                            aria-label={`${apartment.name} — ${serviceName(service, lang)} — ${t('payments.edit')}`}
-                            className={cn(
-                              'tnum mx-2 mb-1 flex items-center justify-end gap-1 rounded text-[11px]',
-                              outstanding > 0 ? 'text-emerald-600' : 'text-emerald-500',
-                              editable && 'hover:text-brand-700 hover:underline',
-                              !editable && 'cursor-default',
+                        {charged > 0 || paid > 0 ? (
+                          <div className="mx-1 mb-1 flex min-h-6 items-center justify-end gap-1">
+                            {paid > 0 ? (
+                              <button
+                                type="button"
+                                disabled={!editable || pending}
+                                onClick={() => onPaidClick(apartment.id, service.id)}
+                                title={editable ? t('payments.edit') : undefined}
+                                aria-label={`${apartment.name} — ${serviceName(service, lang)} — ${t('payments.edit')}`}
+                                className={cn(
+                                  'tnum flex min-w-0 items-center gap-1 rounded text-[11px]',
+                                  outstanding > 0 ? 'text-emerald-600' : 'text-emerald-500',
+                                  editable && !pending && 'hover:text-brand-700 hover:underline',
+                                  (!editable || pending) && 'cursor-default',
+                                )}
+                              >
+                                <span className="truncate">{formatAmount(paid, lang)}</span>
+                              </button>
+                            ) : charged > 0 && canPay ? (
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => onRecordPayment(apartment.id, service.id)}
+                                className="text-[11px] text-slate-400 hover:text-brand-700 hover:underline disabled:cursor-wait"
+                              >
+                                + {t('billing.payShort')}
+                              </button>
+                            ) : (
+                              <span />
                             )}
-                          >
-                            <Icon name="check" className="h-3 w-3" />
-                            {formatAmount(paid, lang)}
-                          </button>
-                        ) : charged > 0 && canPay ? (
-                          <button
-                            type="button"
-                            onClick={() => onRecordPayment(apartment.id, service.id)}
-                            className="mx-2 mb-1 text-end text-[11px] text-slate-400 hover:text-brand-700 hover:underline"
-                          >
-                            + {t('billing.payShort')}
-                          </button>
+                            <div className="flex shrink-0 items-center gap-0.5">
+                              <button
+                                type="button"
+                                disabled={!editable || pending || charged <= 0 || outstanding <= 0}
+                                onClick={() => onMarkCellPaid(apartment.id, service.id)}
+                                title={t('payments.markPaid')}
+                                aria-label={`${apartment.name} — ${serviceName(service, lang)} — ${t('payments.markPaid')}`}
+                                className={cn(
+                                  'rounded p-1 transition-colors disabled:cursor-not-allowed',
+                                  outstanding <= 0
+                                    ? 'text-emerald-600'
+                                    : 'text-slate-400 hover:bg-emerald-50 hover:text-emerald-700',
+                                  (!editable || pending) && 'opacity-50',
+                                )}
+                              >
+                                <Icon name="check" className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!editable || pending || paid <= 0}
+                                onClick={() => onMarkCellUnpaid(apartment.id, service.id)}
+                                title={t('payments.markUnpaid')}
+                                aria-label={`${apartment.name} — ${serviceName(service, lang)} — ${t('payments.markUnpaid')}`}
+                                className={cn(
+                                  'rounded p-1 transition-colors disabled:cursor-not-allowed',
+                                  paid > 0
+                                    ? 'text-rose-500 hover:bg-rose-50 hover:text-rose-700'
+                                    : 'text-slate-300',
+                                  (!editable || pending) && 'opacity-50',
+                                )}
+                              >
+                                <Icon name="x" className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
                         ) : null}
                       </div>
                     </td>

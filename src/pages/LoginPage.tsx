@@ -135,7 +135,7 @@ export function LoginPage() {
                 <Field
                   label={t(allowLegacyEmailLogin ? 'auth.phoneOrEmail' : 'auth.phone')}
                   htmlFor="login-identifier"
-                  hint={t('auth.phoneHint')}
+                  // hint={t('auth.phoneHint')}
                   required
                 >
                   <TextInput

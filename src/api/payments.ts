@@ -80,6 +80,14 @@ export async function deletePayment(id: string): Promise<void> {
   await deleteDoc(paymentDocRef(id));
 }
 
+/** Removes every receipt in a billing cell atomically. */
+export async function deletePayments(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const batch = writeBatch(db);
+  for (const id of ids) batch.delete(paymentRawRef(id));
+  await batch.commit();
+}
+
 /**
  * Typing an amount into the monthly grid is the treasurer's way of saying the
  * money came in, so the same figure is mirrored into a payment: the row reads

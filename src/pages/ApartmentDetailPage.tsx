@@ -399,7 +399,12 @@ export function ApartmentDetailPage() {
         cells={editingCells}
         services={services}
         serviceId={toEdit?.serviceId ?? null}
-        onRecorded={() => setNotice({ tone: 'success', text: t('payments.updated') })}
+        onRecorded={(_count, mode) =>
+          setNotice({
+            tone: 'success',
+            text: mode === 'deleted' ? t('payments.markedUnpaid') : t('payments.updated'),
+          })
+        }
       />
 
       <ConfirmDialog
