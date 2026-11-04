@@ -11,17 +11,16 @@ import {
   EmailAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
-  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   updatePassword,
   type User,
 } from 'firebase/auth';
 import { onSnapshot } from 'firebase/firestore';
-import { allowLegacyEmailLogin, auth, isFirebaseConfigured } from '@/firebase/config';
+import { auth, isFirebaseConfigured } from '@/firebase/config';
 import { userDocRef } from '@/firebase/collections';
 import { errorKey } from '@/lib/errors';
-import { isLegacyEmail, signInEmail } from '@/lib/phoneAuth';
+import { phoneAuthEmail } from '@/lib/phoneAuth';
 import type { TranslationKey } from '@/lib/i18n';
 import type { AppUser } from '@/types/models';
 
@@ -34,7 +33,6 @@ interface AuthValue {
   profileError: TranslationKey | null;
   signIn: (identifier: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  resetLegacyPassword: (email: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
@@ -81,18 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [firebaseUser]);
 
   const signIn = useCallback(async (identifier: string, password: string) => {
-    await signInWithEmailAndPassword(auth, signInEmail(identifier, allowLegacyEmailLogin), password);
+    await signInWithEmailAndPassword(auth, phoneAuthEmail(identifier), password);
   }, []);
 
   const signOut = useCallback(async () => {
     await firebaseSignOut(auth);
-  }, []);
-
-  const resetLegacyPassword = useCallback(async (email: string) => {
-    if (!allowLegacyEmailLogin || !isLegacyEmail(email)) {
-      throw new Error('Email password reset is only available to unmigrated accounts.');
-    }
-    await sendPasswordResetEmail(auth, email.trim());
   }, []);
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
@@ -118,10 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileError,
       signIn,
       signOut,
-      resetLegacyPassword,
       changePassword,
     }),
-    [firebaseUser, profile, authReady, profileReady, isAdmin, hasAccess, profileError, signIn, signOut, resetLegacyPassword, changePassword],
+    [firebaseUser, profile, authReady, profileReady, isAdmin, hasAccess, profileError, signIn, signOut, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

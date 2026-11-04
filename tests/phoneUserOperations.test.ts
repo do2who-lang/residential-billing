@@ -1,17 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  changeUserPhone,
   createAdminAccount,
-  migrateUserAccount,
   resetUserPassword,
 } from '../scripts/phone-user-operations';
 
 const phone = '+962791234567';
 const localPhone = '0791234567';
 const email = 'phone-962791234567@phone.building-ledger.invalid';
+const previousPhone = '+962781234567';
+const previousEmail = 'phone-962781234567@phone.building-ledger.invalid';
 
-function migrationFixture() {
+function phoneChangeFixture() {
   const auth = {
-    getUser: vi.fn(async () => ({ uid: 'user-1', email: 'old@example.com' })),
+    getUser: vi.fn(async () => ({ uid: 'user-1', email: previousEmail })),
     getUserByEmail: vi.fn(async (): Promise<{ uid: string; email?: string }> => {
       throw Object.assign(new Error('Not found'), { code: 'auth/user-not-found' });
     }),
@@ -21,33 +23,33 @@ function migrationFixture() {
     get: vi.fn(async (): Promise<{
       exists: boolean;
       data(): Record<string, unknown> | undefined;
-    }> => ({ exists: true, data: () => ({ email: 'old@example.com', role: 'resident' }) })),
+    }> => ({ exists: true, data: () => ({ phone: previousPhone, role: 'resident' }) })),
     update: vi.fn(async () => undefined),
   };
   return { auth, profile };
 }
 
-describe('account migration', () => {
+describe('changing an account phone number', () => {
   it('preserves the UID and password while updating the identifier and profile', async () => {
-    const { auth, profile } = migrationFixture();
-    await expect(migrateUserAccount(auth, profile, 'user-1', localPhone)).resolves.toBe(phone);
+    const { auth, profile } = phoneChangeFixture();
+    await expect(changeUserPhone(auth, profile, 'user-1', localPhone)).resolves.toBe(phone);
     expect(auth.updateUser).toHaveBeenCalledWith('user-1', { email, emailVerified: false });
     expect(profile.update).toHaveBeenCalledWith({ phone });
   });
 
   it('can resume after the Auth update already succeeded', async () => {
-    const { auth, profile } = migrationFixture();
+    const { auth, profile } = phoneChangeFixture();
     auth.getUser.mockResolvedValueOnce({ uid: 'user-1', email });
     auth.getUserByEmail.mockResolvedValueOnce({ uid: 'user-1', email });
-    await migrateUserAccount(auth, profile, 'user-1', localPhone);
+    await changeUserPhone(auth, profile, 'user-1', localPhone);
     expect(auth.updateUser).not.toHaveBeenCalled();
     expect(profile.update).toHaveBeenCalledWith({ phone });
   });
 
   it('rejects another account already using the phone number', async () => {
-    const { auth, profile } = migrationFixture();
+    const { auth, profile } = phoneChangeFixture();
     auth.getUserByEmail.mockResolvedValueOnce({ uid: 'someone-else', email });
-    await expect(migrateUserAccount(auth, profile, 'user-1', phone)).rejects.toThrow(
+    await expect(changeUserPhone(auth, profile, 'user-1', phone)).rejects.toThrow(
       'already assigned',
     );
     expect(auth.updateUser).not.toHaveBeenCalled();
@@ -55,30 +57,49 @@ describe('account migration', () => {
   });
 
   it('rejects a missing profile without changing Auth', async () => {
-    const { auth, profile } = migrationFixture();
+    const { auth, profile } = phoneChangeFixture();
     profile.get.mockResolvedValueOnce({ exists: false, data: () => undefined });
-    await expect(migrateUserAccount(auth, profile, 'user-1', phone)).rejects.toThrow(
+    await expect(changeUserPhone(auth, profile, 'user-1', phone)).rejects.toThrow(
       'profile does not exist',
     );
     expect(auth.updateUser).not.toHaveBeenCalled();
   });
 
   it('surfaces lookup failures rather than treating them as an available number', async () => {
-    const { auth, profile } = migrationFixture();
+    const { auth, profile } = phoneChangeFixture();
     auth.getUserByEmail.mockRejectedValueOnce(new Error('Permission denied'));
-    await expect(migrateUserAccount(auth, profile, 'user-1', phone)).rejects.toThrow(
+    await expect(changeUserPhone(auth, profile, 'user-1', phone)).rejects.toThrow(
       'Permission denied',
     );
     expect(auth.updateUser).not.toHaveBeenCalled();
   });
 
   it('explains how to retry if the profile write fails after Auth changed', async () => {
-    const { auth, profile } = migrationFixture();
+    const { auth, profile } = phoneChangeFixture();
     profile.update.mockRejectedValueOnce(new Error('Firestore unavailable'));
-    await expect(migrateUserAccount(auth, profile, 'user-1', phone)).rejects.toThrow(
-      'Re-run the same migration command',
+    await expect(changeUserPhone(auth, profile, 'user-1', phone)).rejects.toThrow(
+      'Re-run the same change-phone command',
     );
     expect(auth.updateUser).toHaveBeenCalledOnce();
+  });
+
+  it('rejects an authentication account that does not match the profile phone', async () => {
+    const { auth, profile } = phoneChangeFixture();
+    auth.getUser.mockResolvedValueOnce({ uid: 'user-1', email: 'user@example.com' });
+    await expect(changeUserPhone(auth, profile, 'user-1', phone)).rejects.toThrow(
+      'does not match the profile phone number',
+    );
+    expect(auth.updateUser).not.toHaveBeenCalled();
+    expect(profile.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a profile without a phone number', async () => {
+    const { auth, profile } = phoneChangeFixture();
+    profile.get.mockResolvedValueOnce({ exists: true, data: () => ({ phone: '' }) });
+    await expect(changeUserPhone(auth, profile, 'user-1', phone)).rejects.toThrow(
+      'profile must have a phone number',
+    );
+    expect(auth.updateUser).not.toHaveBeenCalled();
   });
 });
 
@@ -105,7 +126,7 @@ describe('local password recovery', () => {
       get: vi.fn(async () => ({ exists: true, data: () => ({ phone: '+12345678901' }) })),
     };
     await expect(resetUserPassword(auth, () => profile, phone, 'NewPassword1!')).rejects.toThrow(
-      'complete migration first',
+      'verify the account',
     );
     expect(auth.updateUser).not.toHaveBeenCalled();
   });

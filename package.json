@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude tests/rules/** --exclude tests/integration/**",
     "test:rules": "PATH=\"$(brew --prefix openjdk@21 2>/dev/null)/bin:$PATH\" firebase emulators:exec --only firestore --project demo-building-ledger \"vitest run --config vitest.rules.config.ts\"",
-    "test:phone-auth": "firebase emulators:exec --only auth,firestore --project demo-building-ledger \"VITE_USE_EMULATORS=true VITE_ALLOW_LEGACY_EMAIL_LOGIN=false VITE_FIREBASE_API_KEY=demo-test-key VITE_FIREBASE_AUTH_DOMAIN=localhost VITE_FIREBASE_PROJECT_ID=demo-building-ledger VITE_FIREBASE_STORAGE_BUCKET=demo-building-ledger.firebasestorage.app VITE_FIREBASE_MESSAGING_SENDER_ID=0 VITE_FIREBASE_APP_ID=demo-test-app FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 vitest run tests/integration/phone-auth.test.ts\"",
+    "test:phone-auth": "firebase emulators:exec --only auth,firestore --project demo-building-ledger \"VITE_USE_EMULATORS=true VITE_FIREBASE_API_KEY=demo-test-key VITE_FIREBASE_AUTH_DOMAIN=localhost VITE_FIREBASE_PROJECT_ID=demo-building-ledger VITE_FIREBASE_STORAGE_BUCKET=demo-building-ledger.firebasestorage.app VITE_FIREBASE_MESSAGING_SENDER_ID=0 VITE_FIREBASE_APP_ID=demo-test-app FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 vitest run tests/integration/phone-auth.test.ts\"",
     "emulators": "firebase emulators:start --only auth,firestore",
     "users:admin": "tsx scripts/phone-users.ts",
     "deploy": "npm run build && firebase deploy --only hosting,firestore:rules,firestore:indexes"

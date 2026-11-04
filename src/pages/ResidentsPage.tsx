@@ -34,6 +34,12 @@ export function ResidentsPage() {
   const [credentials, setCredentials] = useState<ResidentCredentials | null>(null);
   const [toDelete, setToDelete] = useState<AppUser | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState<AppUser | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editApartmentId, setEditApartmentId] = useState('');
+  const [editActive, setEditActive] = useState(true);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const handleCreate = async () => {
     if (!phone.trim()) {
@@ -66,6 +72,33 @@ export function ResidentsPage() {
       await updateResident(uid, { apartmentId: value || null });
     } catch (err) {
       setNotice({ tone: 'error', text: t(errorKey(err)) });
+    }
+  };
+
+  const openEdit = (user: AppUser) => {
+    setEditing(user);
+    setEditName(user.displayName ?? '');
+    setEditApartmentId(user.apartmentId ?? '');
+    setEditActive(user.active);
+    setEditError(null);
+  };
+
+  const handleEditSave = async () => {
+    if (!editing) return;
+    try {
+      setEditSaving(true);
+      setEditError(null);
+      await updateResident(editing.uid, {
+        displayName: editName.trim() || formatPhoneNumber(editing.phone ?? ''),
+        apartmentId: editApartmentId || null,
+        ...(editing.uid !== profile?.uid ? { active: editActive } : {}),
+      });
+      setEditing(null);
+      setNotice({ tone: 'success', text: t('residents.updated') });
+    } catch (err) {
+      setEditError(t(errorKey(err)));
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -147,8 +180,6 @@ export function ResidentsPage() {
                       <td className="text-slate-600">
                         {user.phone ? (
                           <span dir="ltr">{formatPhoneNumber(user.phone)}</span>
-                        ) : user.email ? (
-                          t('residents.legacyEmail', { email: user.email })
                         ) : (
                           '—'
                         )}
@@ -190,6 +221,18 @@ export function ResidentsPage() {
                       </td>
                       <td>
                         <div className="flex items-center justify-end gap-1">
+                          {isAdmin && isResident ? (
+                            <button
+                              type="button"
+                              disabled={deleting && toDelete?.uid === user.uid}
+                              onClick={() => openEdit(user)}
+                              className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              title={t('residents.edit')}
+                              aria-label={t('residents.edit')}
+                            >
+                              <Icon name="pencil" className="h-4 w-4" />
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             disabled={isSelf || (deleting && toDelete?.uid === user.uid)}
@@ -298,6 +341,76 @@ export function ResidentsPage() {
                   {apartment.name}
                 </option>
               ))}
+            </Select>
+          </Field>
+        </div>
+      </Modal>
+
+      <Modal
+        open={editing !== null}
+        onClose={() => {
+          if (!editSaving) setEditing(null);
+        }}
+        title={t('residents.edit')}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setEditing(null)}
+              disabled={editSaving}
+            >
+              {t('action.cancel')}
+            </Button>
+            <Button onClick={() => void handleEditSave()} loading={editSaving}>
+              {t('action.save')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {editError ? <Banner tone="error">{editError}</Banner> : null}
+          <Field
+            label={t('residents.phone')}
+            htmlFor="edit-resident-phone"
+            hint={t('residents.phoneLocked')}
+          >
+            <TextInput
+              id="edit-resident-phone"
+              dir="ltr"
+              readOnly
+              value={formatPhoneNumber(editing?.phone ?? '')}
+            />
+          </Field>
+          <Field label={t('residents.displayName')} htmlFor="edit-resident-name">
+            <TextInput
+              id="edit-resident-name"
+              value={editName}
+              onChange={(event) => setEditName(event.target.value)}
+            />
+          </Field>
+          <Field label={t('residents.apartment')} htmlFor="edit-resident-apartment">
+            <Select
+              id="edit-resident-apartment"
+              value={editApartmentId}
+              onChange={(event) => setEditApartmentId(event.target.value)}
+            >
+              <option value="">{t('residents.unlinked')}</option>
+              {apartments.map((apartment) => (
+                <option key={apartment.id} value={apartment.id}>
+                  {apartment.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t('residents.status')} htmlFor="edit-resident-status">
+            <Select
+              id="edit-resident-status"
+              value={editActive ? 'active' : 'inactive'}
+              disabled={editing?.uid === profile?.uid}
+              onChange={(event) => setEditActive(event.target.value === 'active')}
+            >
+              <option value="active">{t('residents.active')}</option>
+              <option value="inactive">{t('residents.inactive')}</option>
             </Select>
           </Field>
         </div>

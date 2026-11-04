@@ -3,9 +3,8 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useI18n } from '@/context/I18nContext';
 import { useSettings } from '@/context/SettingsContext';
-import { allowLegacyEmailLogin } from '@/firebase/config';
 import { errorKey } from '@/lib/errors';
-import { isLegacyEmail } from '@/lib/phoneAuth';
+import { ForgotPasswordDialog } from '@/components/layout/ForgotPasswordDialog';
 import { Button } from '@/components/ui/Button';
 import { Field, TextInput } from '@/components/ui/FormControls';
 import { Banner } from '@/components/ui/Feedback';
@@ -15,14 +14,14 @@ import type { TranslationKey } from '@/lib/i18n';
 export function LoginPage() {
   const { t, lang, setLang } = useI18n();
   const { settings } = useSettings();
-  const { firebaseUser, profile, signIn, resetLegacyPassword } = useAuth();
+  const { firebaseUser, profile, signIn } = useAuth();
   const navigate = useNavigate();
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<TranslationKey | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
 
   if (firebaseUser) {
     return <Navigate to={profile?.role === 'resident' ? '/my' : '/'} replace />;
@@ -34,28 +33,8 @@ export function LoginPage() {
     try {
       setBusy(true);
       setError(null);
-      setNotice(null);
       await signIn(identifier, password);
       navigate('/', { replace: true });
-    } catch (err) {
-      setError(errorKey(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleReset = async () => {
-    if (!allowLegacyEmailLogin || !isLegacyEmail(identifier)) {
-      setError(null);
-      setNotice(t('auth.resetContactAdmin'));
-      return;
-    }
-    try {
-      setBusy(true);
-      setError(null);
-      setNotice(null);
-      await resetLegacyPassword(identifier);
-      setNotice(t('auth.resetSent', { email: identifier.trim() }));
     } catch (err) {
       setError(errorKey(err));
     } finally {
@@ -130,18 +109,16 @@ export function LoginPage() {
 
               <form onSubmit={handleSubmit} className="mt-7 space-y-5">
                 {error ? <Banner tone="error">{t(error)}</Banner> : null}
-                {notice ? <Banner tone="success">{notice}</Banner> : null}
 
                 <Field
-                  label={t(allowLegacyEmailLogin ? 'auth.phoneOrEmail' : 'auth.phone')}
+                  label={t('auth.phone')}
                   htmlFor="login-identifier"
-                  // hint={t('auth.phoneHint')}
                   required
                 >
                   <TextInput
                     id="login-identifier"
                     type="text"
-                    inputMode={allowLegacyEmailLogin ? 'text' : 'tel'}
+                    inputMode="tel"
                     autoComplete="username"
                     dir="ltr"
                     value={identifier}
@@ -169,8 +146,12 @@ export function LoginPage() {
 
                 <button
                   type="button"
-                  onClick={() => void handleReset()}
-                  className="w-full text-center text-xs font-medium text-slate-500 underline-offset-2 hover:text-brand-700 hover:underline"
+                  onClick={() => {
+                    setError(null);
+                    setRecoveryOpen(true);
+                  }}
+                  disabled={busy}
+                  className="w-full text-center text-xs font-medium text-slate-500 underline-offset-2 hover:text-brand-700 hover:underline disabled:opacity-60"
                 >
                   {t('auth.forgot')}
                 </button>
@@ -179,6 +160,12 @@ export function LoginPage() {
           </section>
         </div>
       </main>
+      {recoveryOpen ? (
+        <ForgotPasswordDialog
+          initialIdentifier={identifier}
+          onClose={() => setRecoveryOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

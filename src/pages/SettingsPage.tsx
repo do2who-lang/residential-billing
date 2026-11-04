@@ -166,9 +166,7 @@ export function SettingsPage() {
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-slate-500">
-                  {t(profile?.phone ? 'residents.phone' : 'residents.email')}
-                </dt>
+                <dt className="text-slate-500">{t('residents.phone')}</dt>
                 <dd className="truncate font-medium text-slate-800" dir="ltr">
                   {userIdentifier(profile) || '—'}
                 </dd>

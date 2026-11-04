@@ -4,10 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useI18n } from '@/context/I18nContext';
 import { useSettings } from '@/context/SettingsContext';
 import { cn } from '@/lib/cn';
-import { useTheme } from '@/lib/theme';
-import { userDisplayName } from '@/lib/users';
-import { ChangePasswordDialog } from '@/components/layout/ChangePasswordDialog';
-import { Button } from '@/components/ui/Button';
+import { ProfileMenu } from '@/components/layout/ProfileMenu';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { TranslationKey } from '@/lib/i18n';
 
@@ -41,13 +38,11 @@ function readNavCollapsed(): boolean {
 }
 
 export function AppShell() {
-  const { profile, isAdmin, signOut } = useAuth();
+  const { isAdmin } = useAuth();
   const { settings } = useSettings();
-  const { t, lang, setLang } = useI18n();
-  const { theme, toggle: toggleTheme } = useTheme();
+  const { t } = useI18n();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readNavCollapsed);
 
   useEffect(() => {
@@ -144,73 +139,6 @@ export function AppShell() {
           ))}
         </div>
       </nav>
-
-      <div className={cn('border-t border-slate-200', isCollapsed ? 'p-2' : 'p-3')}>
-        {!isCollapsed ? (
-          <div className="mb-3 flex gap-1 rounded-xl bg-slate-100 p-1">
-            {(['en', 'ar'] as const).map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setLang(code)}
-                aria-pressed={lang === code}
-                className={cn(
-                  'flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors',
-                  lang === code
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700',
-                )}
-              >
-                {t(code === 'en' ? 'lang.en' : 'lang.ar')}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <div
-          className={cn(
-            'app-account flex items-center gap-2 rounded-xl py-2',
-            isCollapsed ? 'flex-col px-1' : 'px-2',
-          )}
-        >
-          <span
-            title={userDisplayName(profile) || undefined}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-200 text-[11px] font-semibold uppercase text-slate-600"
-          >
-            {(userDisplayName(profile) || '?').slice(0, 2)}
-          </span>
-          {!isCollapsed ? (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-slate-700">
-                {userDisplayName(profile)}
-              </p>
-              <p className="truncate text-[11px] text-slate-400">
-                {isAdmin ? t('residents.adminBadge') : t('residents.residentBadge')}
-              </p>
-            </div>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              setChangePasswordOpen(true);
-            }}
-            title={t('auth.changePassword')}
-            aria-label={t('auth.changePassword')}
-            className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-700"
-          >
-            <Icon name="lock" className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            title={t('action.signOut')}
-            aria-label={t('action.signOut')}
-            className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-rose-600"
-          >
-            <Icon name="logout" className="h-4 w-4 rtl:rotate-180" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 
@@ -291,58 +219,13 @@ export function AppShell() {
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            title={t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark')}
-            aria-label={t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark')}
-            className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
-          >
-            {theme === 'dark' ? (
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.8}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-              </svg>
-            ) : (
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.8}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-                aria-hidden="true"
-              >
-                <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
-              </svg>
-            )}
-          </button>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon="globe"
-            onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}
-            className="hidden sm:inline-flex"
-          >
-            {t(lang === 'en' ? 'lang.ar' : 'lang.en')}
-          </Button>
+          <ProfileMenu />
         </header>
 
         <main className="mx-auto w-full max-w-[88rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <Outlet />
         </main>
       </div>
-      <ChangePasswordDialog open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
     </div>
   );
 }

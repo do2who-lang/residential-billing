@@ -1,20 +1,15 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { deleteApp as deleteAdminApp, initializeApp as initializeAdminApp, type App } from 'firebase-admin/app';
 import { getAuth as getAdminAuth, type Auth as AdminAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore as getAdminFirestore, type Firestore as AdminFirestore } from 'firebase-admin/firestore';
-import {
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  signInWithEmailAndPassword,
-  signOut,
-  updatePassword,
-  type Auth,
-} from 'firebase/auth';
+import { signOut, type Auth } from 'firebase/auth';
 import { deleteApp, type FirebaseApp } from 'firebase/app';
 import { doc, getDoc, setDoc, terminate, type Firestore } from 'firebase/firestore';
-import { signInEmail } from '@/lib/phoneAuth';
+import { phoneAuthEmail } from '@/lib/phoneAuth';
 import {
   createAdminAccount,
   resetUserPassword,
@@ -24,9 +19,9 @@ const projectId = 'demo-building-ledger';
 const seed = String(Date.now()).slice(-7);
 const adminPhone = `079${seed}`;
 const residentPhone = `078${seed}`;
-const migratedPhone = `077${seed}`;
+const secondResidentPhone = `077${seed}`;
+const updatedPhone = `+1555${seed}`;
 const adminPassword = 'TestAdminPassword1!';
-const legacyPassword = 'TestLegacyPassword1!';
 const changedPassword = 'TestChangedPassword2!';
 const resetPassword = 'TestResetPassword3!';
 const createdUids: string[] = [];
@@ -44,6 +39,8 @@ let auth: Auth;
 let db: Firestore;
 let createResident: typeof import('@/api/users').createResident;
 let deleteResident: typeof import('@/api/users').deleteResident;
+let signIn: (identifier: string, password: string) => Promise<void>;
+let changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 
 beforeAll(async () => {
   if (
@@ -56,6 +53,14 @@ beforeAll(async () => {
   }
   ({ auth, db, firebaseApp } = await import('@/firebase/config'));
   ({ createResident, deleteResident } = await import('@/api/users'));
+  const { AuthProvider, useAuth } = await import('@/context/AuthContext');
+  function CaptureAuthActions() {
+    const actions = useAuth();
+    signIn = actions.signIn;
+    changePassword = actions.changePassword;
+    return null;
+  }
+  renderToStaticMarkup(createElement(AuthProvider, { children: createElement(CaptureAuthActions) }));
   adminApp = initializeAdminApp({ projectId }, 'phone-auth-integration');
   adminAuth = getAdminAuth(adminApp);
   adminDb = getAdminFirestore(adminApp);
@@ -74,7 +79,7 @@ afterAll(async () => {
 });
 
 describe('phone accounts with Firebase emulators', () => {
-  it('creates, signs in, changes and resets a password, and migrates a legacy user', async () => {
+  it('creates, signs in, changes and resets passwords, and updates a phone number', async () => {
     const profileForUid = (uid: string) => adminDb.collection('users').doc(uid);
     const adminUid = await createAdminAccount(
       adminAuth,
@@ -88,7 +93,11 @@ describe('phone accounts with Firebase emulators', () => {
     expect((await adminAuth.getUser(adminUid)).email).toBe(
       `phone-962${adminPhone.slice(1)}@phone.building-ledger.invalid`,
     );
-    await signInWithEmailAndPassword(auth, signInEmail(adminPhone, false), adminPassword);
+    await expect(signIn('user@example.com', adminPassword)).rejects.toMatchObject({
+      code: 'app/invalid-phone',
+    });
+    expect(auth.currentUser).toBeNull();
+    await signIn(adminPhone, adminPassword);
 
     const resident = await createResident({
       phone: residentPhone,
@@ -112,67 +121,62 @@ describe('phone accounts with Firebase emulators', () => {
     ).rejects.toMatchObject({ code: 'auth/email-already-in-use' });
     expect(auth.currentUser?.uid).toBe(adminUid);
 
+    const secondResident = await createResident({
+      phone: secondResidentPhone,
+      displayName: 'Second resident',
+      apartmentId: 'apartment-2',
+    });
+    createdUids.push(secondResident.uid);
+    expect(auth.currentUser?.uid).toBe(adminUid);
+
     await signOut(auth);
-    await signInWithEmailAndPassword(auth, signInEmail(residentPhone, false), resident.password);
+    await signIn(residentPhone, resident.password);
     expect(auth.currentUser?.uid).toBe(resident.uid);
     await expect(deleteResident(adminUid)).rejects.toMatchObject({ code: 'permission-denied' });
     await expect(deleteResident(resident.uid)).rejects.toMatchObject({ code: 'permission-denied' });
     expect((await getDoc(doc(db, 'users', resident.uid))).exists()).toBe(true);
     await expect(setDoc(doc(db, 'users', resident.uid), { role: 'admin' }, { merge: true })).rejects.toThrow();
 
-    const user = auth.currentUser;
-    if (!user?.email) throw new Error('Expected the signed-in resident to have an Auth identifier.');
-    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, resident.password));
-    await updatePassword(user, changedPassword);
+    await expect(changePassword('WrongCurrentPassword1!', changedPassword)).rejects.toMatchObject({
+      code: expect.stringMatching(/^auth\/(invalid-credential|wrong-password)$/),
+    });
+    await changePassword(resident.password, changedPassword);
     await signOut(auth);
-    await expect(signInWithEmailAndPassword(auth, signInEmail(residentPhone, false), resident.password)).rejects.toThrow();
-    await signInWithEmailAndPassword(auth, signInEmail(internationalPhone(residentPhone), false), changedPassword);
+    await expect(signIn(residentPhone, resident.password)).rejects.toThrow();
+    await signIn(internationalPhone(residentPhone), changedPassword);
     await signOut(auth);
 
     await resetUserPassword(adminAuth, profileForUid, residentPhone, resetPassword);
-    await expect(signInWithEmailAndPassword(auth, signInEmail(residentPhone, false), changedPassword)).rejects.toThrow();
-    await signInWithEmailAndPassword(auth, signInEmail(residentPhone, false), resetPassword);
+    await expect(signIn(residentPhone, changedPassword)).rejects.toThrow();
+    await signIn(residentPhone, resetPassword);
     await signOut(auth);
 
-    const legacyEmail = `legacy-${seed}@example.com`;
-    const legacy = await adminAuth.createUser({ email: legacyEmail, password: legacyPassword });
-    createdUids.push(legacy.uid);
-    await profileForUid(legacy.uid).create({
-      email: legacyEmail,
-      displayName: 'Legacy resident',
-      role: 'resident',
-      apartmentId: 'apartment-2',
-      active: true,
-    });
-    const migration = await runFile(process.execPath, [
+    const changePhone = await runFile(process.execPath, [
       '--import',
       'tsx',
       'scripts/phone-users.ts',
-      'migrate',
+      'change-phone',
       '--project',
       projectId,
       '--uid',
-      legacy.uid,
+      secondResident.uid,
       '--phone',
-      migratedPhone,
+      updatedPhone,
     ]);
-    expect(migration.stdout).toContain(`Migrated ${legacy.uid} to ${migratedPhone}`);
-    expect((await adminAuth.getUser(legacy.uid)).email).toBe(
-      `phone-962${migratedPhone.slice(1)}@phone.building-ledger.invalid`,
-    );
-    expect((await profileForUid(legacy.uid).get()).data()).toMatchObject({
-      phone: internationalPhone(migratedPhone),
+    expect(changePhone.stdout).toContain(`Updated ${secondResident.uid} to ${updatedPhone}`);
+    expect((await adminAuth.getUser(secondResident.uid)).email).toBe(phoneAuthEmail(updatedPhone));
+    expect((await profileForUid(secondResident.uid).get()).data()).toMatchObject({
+      phone: updatedPhone,
       role: 'resident',
       apartmentId: 'apartment-2',
-      email: legacyEmail,
     });
-    await signInWithEmailAndPassword(auth, signInEmail(migratedPhone, false), legacyPassword);
-    expect(auth.currentUser?.uid).toBe(legacy.uid);
+    await expect(signIn(secondResidentPhone, secondResident.password)).rejects.toThrow();
+    await signIn(updatedPhone, secondResident.password);
+    expect(auth.currentUser?.uid).toBe(secondResident.uid);
     await signOut(auth);
-    await expect(signInWithEmailAndPassword(auth, legacyEmail, legacyPassword)).rejects.toThrow();
 
     await expect(deleteResident(resident.uid)).rejects.toMatchObject({ code: 'permission-denied' });
-    await signInWithEmailAndPassword(auth, signInEmail(adminPhone, false), adminPassword);
+    await signIn(adminPhone, adminPassword);
     await expect(deleteResident(adminUid)).rejects.toMatchObject({ code: 'permission-denied' });
     const preservedDocs = [
       adminDb.doc('apartments/deletion-test'),
@@ -197,7 +201,7 @@ describe('phone accounts with Firebase emulators', () => {
       }
 
       await signOut(auth);
-      await signInWithEmailAndPassword(auth, signInEmail(residentPhone, false), resetPassword);
+      await signIn(residentPhone, resetPassword);
       expect(auth.currentUser?.uid).toBe(resident.uid);
       expect((await getDoc(doc(db, 'users', resident.uid))).exists()).toBe(false);
       await expect(getDoc(doc(db, 'apartments/deletion-test'))).rejects.toMatchObject({
@@ -207,7 +211,7 @@ describe('phone accounts with Firebase emulators', () => {
         code: 'permission-denied',
       });
       await signOut(auth);
-      await signInWithEmailAndPassword(auth, signInEmail(adminPhone, false), adminPassword);
+      await signIn(adminPhone, adminPassword);
       const replacementInput = {
         phone: residentPhone,
         displayName: 'Replacement resident',
@@ -222,9 +226,9 @@ describe('phone accounts with Firebase emulators', () => {
       createdUids.push(replacement.uid);
       expect(replacement.uid).not.toBe(resident.uid);
       await deleteResident(replacement.uid);
-      await deleteResident(legacy.uid);
-      expect((await profileForUid(legacy.uid).get()).exists).toBe(false);
-      expect((await adminAuth.getUser(legacy.uid)).uid).toBe(legacy.uid);
+      await deleteResident(secondResident.uid);
+      expect((await profileForUid(secondResident.uid).get()).exists).toBe(false);
+      expect((await adminAuth.getUser(secondResident.uid)).uid).toBe(secondResident.uid);
     } finally {
       await Promise.all(preservedDocs.map((reference) => reference.delete()));
     }

@@ -81,7 +81,6 @@ export function userFromSnap(uid: string, data: Record<string, unknown>): AppUse
   return {
     uid,
     phone: str(data.phone),
-    email: str(data.email),
     displayName: str(data.displayName),
     role: data.role === 'admin' ? 'admin' : 'resident',
     apartmentId: typeof data.apartmentId === 'string' && data.apartmentId ? data.apartmentId : null,
@@ -94,7 +93,6 @@ export const userConverter: FirestoreDataConverter<AppUser> = {
   toFirestore(user) {
     return {
       phone: user.phone,
-      email: user.email,
       displayName: user.displayName,
       role: user.role,
       apartmentId: user.apartmentId,

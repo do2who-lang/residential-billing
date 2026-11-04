@@ -9,11 +9,11 @@ import {
   temporaryPassword,
   TEMPORARY_PASSWORD_BYTES,
 } from '../src/lib/phoneAuth';
-import { createAdminAccount, migrateUserAccount, resetUserPassword } from './phone-user-operations';
+import { changeUserPhone, createAdminAccount, resetUserPassword } from './phone-user-operations';
 
 const usage = `Usage:
   npm run users:admin -- create-admin --project PROJECT_ID --phone PHONE_NUMBER [--name NAME]
-  npm run users:admin -- migrate --project PROJECT_ID --uid USER_UID --phone PHONE_NUMBER
+  npm run users:admin -- change-phone --project PROJECT_ID --uid USER_UID --phone PHONE_NUMBER
   npm run users:admin -- reset --project PROJECT_ID --phone PHONE_NUMBER
 
 Use a Jordanian mobile number such as 0791234567, or an international number starting with +.
@@ -37,10 +37,10 @@ async function main(): Promise<void> {
   const [command] = positionals;
   if (
     positionals.length !== 1 ||
-    !['create-admin', 'migrate', 'reset'].includes(command) ||
+    !['create-admin', 'change-phone', 'reset'].includes(command) ||
     !values.project ||
     !values.phone ||
-    (command === 'migrate' && !values.uid)
+    (command === 'change-phone' && !values.uid)
   ) {
     throw new Error(usage);
   }
@@ -60,11 +60,11 @@ async function main(): Promise<void> {
     const db = getFirestore(app);
     const profileForUid = (uid: string) => db.collection('users').doc(uid);
 
-    if (command === 'migrate') {
+    if (command === 'change-phone') {
       const uid = values.uid;
-      if (!uid) throw new Error('A user UID is required for migration.');
-      await migrateUserAccount(auth, profileForUid(uid), uid, phone);
-      console.log(`Migrated ${uid} to ${displayPhone}; the existing UID, profile, and password are retained.`);
+      if (!uid) throw new Error('A user UID is required to change a phone number.');
+      await changeUserPhone(auth, profileForUid(uid), uid, phone);
+      console.log(`Updated ${uid} to ${displayPhone}; the existing UID, profile, and password are retained.`);
     } else {
       const password = temporaryPassword(randomBytes(TEMPORARY_PASSWORD_BYTES));
       if (command === 'create-admin') {

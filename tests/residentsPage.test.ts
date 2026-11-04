@@ -34,7 +34,6 @@ function user(uid: string, patch: Partial<AppUser> = {}): AppUser {
     uid,
     displayName: uid,
     phone: '+962791234567',
-    email: '',
     role: 'resident',
     active: true,
     apartmentId: null,
@@ -77,6 +76,15 @@ describe('resident deletion controls', () => {
     expect(markup.match(/aria-label="Delete resident"/g)).toHaveLength(1);
     const ownRow = markup.match(/<tr[^>]*>[\s\S]*?resident-1[\s\S]*?<\/tr>/)?.[0];
     expect(ownRow).not.toContain('aria-label="Delete resident"');
+  });
+
+  it('offers resident editing to administrators only', () => {
+    const markup = renderToStaticMarkup(createElement(ResidentsPage));
+    expect(markup.match(/aria-label="Edit resident"/g)).toHaveLength(2);
+    state.isAdmin = false;
+    expect(renderToStaticMarkup(createElement(ResidentsPage))).not.toContain(
+      'aria-label="Edit resident"',
+    );
   });
 
   it('keeps inactive residents available for deletion without a server-side cleanup lock', () => {

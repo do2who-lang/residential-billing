@@ -87,11 +87,12 @@ means before sharing credentials.
 
 Administrators add residents from **Residents**, then share the displayed
 temporary password privately. It is shown only once. Residents and
-administrators can change their own password using the lock button beside
-their account in the navigation. If a password is forgotten, a project
-administrator must reset it with the local tool below; email reset links cannot
-be delivered to phone accounts. For a new project with no legacy accounts, set
-`VITE_ALLOW_LEGACY_EMAIL_LOGIN=false` before starting or building the app.
+administrators can change their own password by selecting **Change password**
+in the profile menu in the header. If a password is forgotten, a project
+administrator must reset it with the local tool below. On the sign-in page,
+**Forgot your password?**
+prepares a message containing the account's phone number. The user must send
+that message to the administrator themselves; the app does not send a request.
 
 Administrators can delete a resident using the trash button on **Residents**.
 After confirmation, the app deletes the resident's Firestore profile. Their
@@ -106,7 +107,6 @@ must remove the old login manually:
 1. Open **Firebase Console → Authentication → Users**.
 2. Find the login by its internal username, for example
    `phone-962791234567@phone.building-ledger.invalid` for `0791234567`.
-   Legacy accounts may still use their original email.
 3. Verify that it belongs to the removed resident, then delete that login.
 4. Add the resident again from the app if needed.
 
@@ -116,7 +116,7 @@ manual cleanup. No Cloud Functions or Blaze plan are needed for this workflow.
 Firebase email/password sign-up is publicly reachable. An unapproved account
 has no building access without an administrator-created `users/{uid}` profile,
 but someone can reserve an internal username and prevent its creation or
-migration. Resolve such conflicts in Firebase Authentication only after
+reuse. Resolve such conflicts in Firebase Authentication only after
 checking the account and its profile; do not grant access to an unknown account.
 
 ### Local administration
@@ -164,30 +164,22 @@ Share the new temporary password privately and have the user change it. Firebase
 revokes the account's refresh tokens after the password change; an already
 issued ID token may remain valid until it expires.
 
-### Migrate existing email accounts
+### Change an account's phone number
 
-Before deploying phone-only sign-in, obtain and confirm each user's unique
-phone number and record their existing Firebase Auth UID. Deploy the updated
-app first: legacy email sign-in and email password resets are enabled by default
-so existing users can continue to sign in during migration.
-
-Run the following command for each existing administrator and resident:
+A trusted project administrator can change the number for an existing phone
+account. Verify the user's identity and new number, and find their Firebase Auth
+UID before running:
 
 ```bash
-npm run users:admin -- migrate --project YOUR_PROJECT_ID --uid EXISTING_UID --phone 0791234567
+npm run users:admin -- change-phone --project YOUR_PROJECT_ID --uid EXISTING_UID --phone 0791234567
 ```
 
-The command changes the Firebase Auth identifier and records the phone number
-on the existing profile. The UID, role, apartment, and password remain the
-same; the original profile email field is retained as legacy data. Firebase
-may invalidate existing sessions or send an account-change notice to the old
-address when the identifier changes. Verify phone sign-in for the administrator
-and each resident, then set
-`VITE_ALLOW_LEGACY_EMAIL_LOGIN=false` and rebuild/deploy to disable legacy
-email sign-in. A phone already assigned to another Auth account is rejected.
-If the Auth update succeeds but the profile update fails, re-run the same
-command to finish the migration. The same command can update an already
-migrated user's phone number while keeping their UID and password.
+The command updates the internal Auth identifier and the profile phone number;
+the UID, role, apartment, and password remain the same. A number already
+assigned to another Auth account is rejected. If the Auth update succeeds but
+the profile update fails, re-run the same command to finish the change. Verify
+that the user can sign in with the new number; Firebase may invalidate their
+existing sessions when the identifier changes.
 
 ## Local development with emulators
 
@@ -247,8 +239,9 @@ matrix including archived apartments.
 
 `tests/residentAccounts.test.ts` and `tests/residentsPage.test.ts` cover the
 profile-deletion API and administrator-only controls. The phone-account
-integration test verifies revoked access despite a retained login, phone reuse
-only after manual Auth cleanup, and preservation of apartment billing history.
+integration test verifies password changes through the app's auth context,
+revoked access despite a retained login, phone reuse only after manual Auth
+cleanup, and preservation of apartment billing history.
 
 ## Scripts
 
@@ -262,7 +255,7 @@ only after manual Auth cleanup, and preservation of apartment billing history.
 | `npm run test:rules`| Firestore rules tests (starts the emulator)           |
 | `npm run test:phone-auth` | Phone account lifecycle (starts both emulators) |
 | `npm run emulators` | Firebase emulator suite                               |
-| `npm run users:admin -- --help` | Local admin, migration, and recovery tool |
+| `npm run users:admin -- --help` | Local admin, phone update, and recovery tool |
 | `npm run deploy`    | Deploy hosting + rules + indexes                      |
 
 ## Deploying
@@ -281,7 +274,7 @@ deep links such as `/periods/2026-01` and `/apartments/abc/print` work.
 ```
 settings/building            { name, address, currency, defaultLang,
                                cashOnHandMinor, cashCountedAt }
-users/{uid}                  { phone, displayName, role, apartmentId, active, createdAt, email? }
+users/{uid}                  { phone, displayName, role, apartmentId, active, createdAt }
 apartments/{apartmentId}     { name, floor, number, ownerName, phone, email, archived, order, createdAt }
 services/{serviceId}         { nameEn, nameAr, archived, order, createdAt }
 periods/{periodId}           { year, month, status: draft|open|closed, notes, createdAt, closedAt,
@@ -407,8 +400,8 @@ figures sit under every bar, and the tooltip splits charged / collected / shared
 
 The app ships **dark**: `index.html` sets `class="dark"` on `<html>` and a tiny
 inline script clears it only when the browser stored an explicit `light` choice,
-so there is no light flash on load. The sun/moon button in the header switches
-between the two and remembers the choice (`localStorage['theme']`); clearing site
+so there is no light flash on load. The profile menu in the header switches
+between themes and remembers the choice (`localStorage['theme']`); clearing site
 data puts you back on dark.
 
 The shared navigation, sign-in screen, cards, forms and tables use the same

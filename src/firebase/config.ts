@@ -15,7 +15,6 @@ import {
 } from 'firebase/firestore';
 
 const USE_EMULATORS = import.meta.env.VITE_USE_EMULATORS === 'true';
-export const allowLegacyEmailLogin = import.meta.env.VITE_ALLOW_LEGACY_EMAIL_LOGIN !== 'false';
 
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,

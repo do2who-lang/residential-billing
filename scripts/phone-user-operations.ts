@@ -9,7 +9,7 @@ interface AccountLookup {
   getUserByEmail(email: string): Promise<Account>;
 }
 
-interface MigrationAuth extends AccountLookup {
+interface PhoneChangeAuth extends AccountLookup {
   getUser(uid: string): Promise<Account>;
   updateUser(uid: string, updates: { email: string; emailVerified: false }): Promise<unknown>;
 }
@@ -32,7 +32,7 @@ interface ProfileReader {
   get(): Promise<ProfileSnapshot>;
 }
 
-interface MigrationProfile extends ProfileReader {
+interface PhoneChangeProfile extends ProfileReader {
   update(data: { phone: string }): Promise<unknown>;
 }
 
@@ -53,9 +53,9 @@ function isUserNotFound(error: unknown): boolean {
   );
 }
 
-export async function migrateUserAccount(
-  auth: MigrationAuth,
-  profile: MigrationProfile,
+export async function changeUserPhone(
+  auth: PhoneChangeAuth,
+  profile: PhoneChangeProfile,
   uid: string,
   inputPhone: string,
 ): Promise<string> {
@@ -63,6 +63,14 @@ export async function migrateUserAccount(
   const email = phoneAuthEmail(phone);
   const [user, snapshot] = await Promise.all([auth.getUser(uid), profile.get()]);
   if (!snapshot.exists) throw new Error(`The users/${uid} profile does not exist.`);
+  const currentPhone = snapshot.data()?.phone;
+  if (typeof currentPhone !== 'string' || !currentPhone.trim()) {
+    throw new Error('The account profile must have a phone number before it can be changed.');
+  }
+  const accountEmail = user.email?.toLowerCase();
+  if (accountEmail !== phoneAuthEmail(currentPhone) && accountEmail !== email) {
+    throw new Error('The authentication account does not match the profile phone number; verify the account before changing it.');
+  }
 
   let existing: Account | undefined;
   try {
@@ -74,14 +82,14 @@ export async function migrateUserAccount(
     throw new Error('That phone number is already assigned to another authentication account.');
   }
 
-  if (user.email?.toLowerCase() !== email) {
+  if (accountEmail !== email) {
     await auth.updateUser(uid, { email, emailVerified: false });
   }
   try {
     await profile.update({ phone });
   } catch (error) {
     throw new Error(
-      `The authentication account was changed, but users/${uid} could not be updated. Re-run the same migration command.`,
+      `The authentication account was changed, but users/${uid} could not be updated. Re-run the same change-phone command.`,
       { cause: error },
     );
   }
@@ -98,7 +106,7 @@ export async function resetUserPassword(
   const user = await auth.getUserByEmail(phoneAuthEmail(phone));
   const snapshot = await profileForUid(user.uid).get();
   if (!snapshot.exists || snapshot.data()?.phone !== phone) {
-    throw new Error('The account profile is missing or has a different phone number; complete migration first.');
+    throw new Error('The account profile is missing or has a different phone number; verify the account before resetting its password.');
   }
   await auth.updateUser(user.uid, { password });
   return user.uid;

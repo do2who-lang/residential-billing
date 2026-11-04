@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   formatPhoneNumber,
   InvalidPhoneNumberError,
-  isLegacyEmail,
   normalizePhoneNumber,
   phoneAuthEmail,
-  signInEmail,
   temporaryPassword,
   TEMPORARY_PASSWORD_BYTES,
 } from '@/lib/phoneAuth';
@@ -66,14 +64,9 @@ describe('phone-based account identifiers', () => {
     expect(formatPhoneNumber(phone)).toBe(expected);
   });
 
-  it('accepts real email identifiers only when the migration flag is enabled', () => {
-    expect(signInEmail(' old@example.com ', true)).toBe('old@example.com');
-    expect(() => signInEmail('old@example.com', false)).toThrow(InvalidPhoneNumberError);
-    expect(signInEmail('0791234567', false)).toBe(phoneAuthEmail('+962791234567'));
-    expect(isLegacyEmail(phoneAuthEmail('+962791234567'))).toBe(false);
-    expect(() => signInEmail(phoneAuthEmail('+962791234567'), true)).toThrow(
-      InvalidPhoneNumberError,
-    );
+  it('rejects email addresses instead of treating them as sign-in identifiers', () => {
+    expect(() => phoneAuthEmail('user@example.com')).toThrow(InvalidPhoneNumberError);
+    expect(() => phoneAuthEmail(phoneAuthEmail('0791234567'))).toThrow(InvalidPhoneNumberError);
   });
 });
 
@@ -81,7 +74,6 @@ describe('displaying account identifiers', () => {
   const user: AppUser = {
     uid: 'user-1',
     phone: '+962791234567',
-    email: 'legacy@example.com',
     displayName: '',
     role: 'resident',
     apartmentId: null,
@@ -96,9 +88,9 @@ describe('displaying account identifiers', () => {
     expect(userDisplayName({ ...user, displayName: 'Resident' })).toBe('Resident');
   });
 
-  it('preserves non-Jordanian numbers and legacy email addresses', () => {
+  it('preserves non-Jordanian numbers and leaves missing phone numbers blank', () => {
     expect(userIdentifier({ ...user, phone: '+15551234567' })).toBe('+15551234567');
-    expect(userIdentifier({ ...user, phone: '' })).toBe('legacy@example.com');
+    expect(userIdentifier({ ...user, phone: '' })).toBe('');
     expect(userIdentifier(null)).toBe('');
   });
 });

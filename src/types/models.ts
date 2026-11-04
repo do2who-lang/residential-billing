@@ -5,8 +5,6 @@ export type Role = 'admin' | 'resident';
 export interface AppUser {
   uid: string;
   phone: string;
-  /** Retained for accounts that have not yet been migrated. */
-  email: string;
   displayName: string;
   role: Role;
   /** Apartment this resident is linked to. Ad NULL for admins. */

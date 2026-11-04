@@ -76,9 +76,11 @@ export function ChangePasswordDialog({ open, onClose }: { open: boolean; onClose
             id="current-password"
             type="password"
             autoComplete="current-password"
+            autoFocus
             dir="ltr"
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
+            disabled={busy}
             required
           />
         </Field>
@@ -90,6 +92,7 @@ export function ChangePasswordDialog({ open, onClose }: { open: boolean; onClose
             dir="ltr"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
+            disabled={busy}
             required
           />
         </Field>
@@ -101,6 +104,7 @@ export function ChangePasswordDialog({ open, onClose }: { open: boolean; onClose
             dir="ltr"
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
+            disabled={busy}
             required
           />
         </Field>

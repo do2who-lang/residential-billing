@@ -32,15 +32,6 @@ export function phoneAuthEmail(input: string): string {
   return `phone-${normalizePhoneNumber(input).slice(1)}@${PHONE_AUTH_DOMAIN}`;
 }
 
-export function isLegacyEmail(input: string): boolean {
-  const email = input.trim().toLowerCase();
-  return email.includes('@') && !email.endsWith(`@${PHONE_AUTH_DOMAIN}`);
-}
-
-export function signInEmail(input: string, allowLegacyEmail: boolean): string {
-  return allowLegacyEmail && isLegacyEmail(input) ? input.trim() : phoneAuthEmail(input);
-}
-
 export function temporaryPassword(randomBytes: Uint8Array): string {
   if (randomBytes.length !== TEMPORARY_PASSWORD_BYTES) {
     throw new Error(`Expected ${TEMPORARY_PASSWORD_BYTES} secure random bytes.`);

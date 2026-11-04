@@ -59,7 +59,7 @@ async function seed(): Promise<void> {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     const batch: Array<[string, Record<string, unknown>]> = [
-      [`users/${ADMIN}`, { role: 'admin', active: true, apartmentId: null, email: 'a@x.com' }],
+      [`users/${ADMIN}`, { role: 'admin', active: true, apartmentId: null, phone: '+962791234567' }],
       [`users/${RESIDENT_1}`, { role: 'resident', active: true, apartmentId: 'apt-1' }],
       [`users/${RESIDENT_2}`, { role: 'resident', active: true, apartmentId: 'apt-2' }],
       [`users/${INACTIVE}`, { role: 'resident', active: false, apartmentId: 'apt-1' }],
@@ -212,7 +212,7 @@ describe('admin', () => {
     const db = adminDb();
     await assertSucceeds(
       setDoc(doc(db, 'users', NEW_RESIDENT), {
-        email: 'new@x.com',
+        phone: '+962781234567',
         displayName: 'New Resident',
         role: 'resident',
         apartmentId: 'apt-2',
