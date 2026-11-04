@@ -1,16 +1,78 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useI18n } from '@/context/I18nContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useAllPayments } from '@/hooks/usePayments';
 import { usePeriods } from '@/hooks/usePeriods';
 import { errorKey } from '@/lib/errors';
 import { formatMoney, parseAmount, toInputValue } from '@/lib/money';
-import { countedAtInputValue, computeTreasury, resolveCountedAt, sharedExpenses } from '@/lib/treasury';
+import {
+  countedAtInputValue,
+  computeTreasury,
+  resolveCountedAt,
+  sharedExpenses,
+  type TreasurySummary,
+} from '@/lib/treasury';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/Button';
 import { Field, TextInput } from '@/components/ui/FormControls';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
+
+/** Read-only presentation of the treasury figure, shared by admins and residents. */
+export function AvailableBalanceView({
+  summary,
+  action,
+  notice,
+  className,
+}: {
+  summary: TreasurySummary;
+  action?: ReactNode;
+  notice?: string | null;
+  className?: string;
+}) {
+  const { t, lang } = useI18n();
+  const { settings } = useSettings();
+
+  return (
+    <div className={cn('card treasury-card p-5 sm:p-6', className)}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-4">
+          <span className="app-brand-mark flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white">
+            <Icon name="wallet" className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-800">
+              {t('treasury.title')}
+            </p>
+            <p className="tnum mt-2 break-words text-2xl font-semibold tracking-tight text-brand-900 sm:text-3xl">
+              {formatMoney(summary.availableMinor, settings.currency, lang)}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-brand-800/80">
+              {summary.unset
+                ? t('treasury.notSet')
+                : t('treasury.breakdown', {
+                    counted: formatMoney(summary.countedMinor, settings.currency, lang),
+                    date: countedAtInputValue(summary.countedAt),
+                    since: formatMoney(summary.collectedSinceMinor, settings.currency, lang),
+                  })}
+            </p>
+            {summary.spentMinor > 0 ? (
+              <p className="mt-1 text-xs leading-relaxed text-rose-700">
+                {t('treasury.spent', {
+                  amount: formatMoney(summary.spentMinor, settings.currency, lang),
+                })}
+              </p>
+            ) : null}
+            {notice ? (
+              <p className="mt-1.5 text-xs font-medium text-emerald-700">{notice}</p>
+            ) : null}
+          </div>
+        </div>
+        {action}
+      </div>
+    </div>
+  );
+}
 
 /**
  * The building's real cash position, editable.
@@ -20,7 +82,7 @@ import { Modal } from '@/components/ui/Modal';
  * overwriting it. Re-counting the drawer simply re-baselines it.
  */
 export function AvailableBalanceCard() {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const { settings, saveSettings } = useSettings();
   const { payments } = useAllPayments();
   const { periods } = usePeriods();
@@ -69,45 +131,15 @@ export function AvailableBalanceCard() {
 
   return (
     <>
-      <div className="card treasury-card p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-4">
-            <span className="app-brand-mark flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white">
-              <Icon name="wallet" className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-800">
-                {t('treasury.title')}
-              </p>
-              <p className="tnum mt-2 break-words text-2xl font-semibold tracking-tight text-brand-900 sm:text-3xl">
-                {formatMoney(summary.availableMinor, settings.currency, lang)}
-              </p>
-              <p className="mt-2 text-xs leading-relaxed text-brand-800/80">
-                {summary.unset
-                  ? t('treasury.notSet')
-                  : t('treasury.breakdown', {
-                      counted: formatMoney(summary.countedMinor, settings.currency, lang),
-                      date: countedAtInputValue(summary.countedAt),
-                      since: formatMoney(summary.collectedSinceMinor, settings.currency, lang),
-                    })}
-              </p>
-              {summary.spentMinor > 0 ? (
-                <p className="mt-1 text-xs leading-relaxed text-rose-700">
-                  {t('treasury.spent', {
-                    amount: formatMoney(summary.spentMinor, settings.currency, lang),
-                  })}
-                </p>
-              ) : null}
-              {notice ? (
-                <p className="mt-1.5 text-xs font-medium text-emerald-700">{notice}</p>
-              ) : null}
-            </div>
-          </div>
+      <AvailableBalanceView
+        summary={summary}
+        notice={notice}
+        action={
           <Button variant="secondary" size="sm" icon="pencil" onClick={() => setOpen(true)}>
             {t('treasury.edit')}
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <Modal
         open={open}

@@ -5,18 +5,21 @@ import { useApartmentCharges } from '@/hooks/useApartmentCharges';
 import { usePaymentsForApartment } from '@/hooks/usePayments';
 import { usePeriods } from '@/hooks/usePeriods';
 import { useServices } from '@/hooks/useServices';
+import { useTreasurySummary } from '@/hooks/useTreasurySummary';
 import { useAuth } from '@/context/AuthContext';
 import { useI18n } from '@/context/I18nContext';
 import { useSettings } from '@/context/SettingsContext';
 import { paymentStatus, selectApartmentBilling, serviceName } from '@/lib/billing';
 import { formatAmount, formatMoney } from '@/lib/money';
 import { comparePeriodsDesc, currentPeriodId, periodLabel } from '@/lib/period';
+import { errorKey } from '@/lib/errors';
 import { cn } from '@/lib/cn';
 import { ALL_PERIODS, PeriodNav } from '@/components/billing/PeriodNav';
 import { PaymentStatusBadge } from '@/components/billing/StatusBadge';
 import { PaymentsList } from '@/components/billing/PaymentsList';
+import { AvailableBalanceView } from '@/components/treasury/AvailableBalanceCard';
 import { buttonClass } from '@/components/ui/Button';
-import { EmptyState, LoadingBlock } from '@/components/ui/Feedback';
+import { Banner, EmptyState, LoadingBlock } from '@/components/ui/Feedback';
 import { Icon } from '@/components/ui/Icon';
 import { PageHeader, SectionCard, StatCard } from '@/components/ui/Page';
 
@@ -24,6 +27,9 @@ export function MyApartmentPage() {
   const { t, lang } = useI18n();
   const { settings } = useSettings();
   const { profile } = useAuth();
+  const canViewTotalBalance = profile?.privileges?.viewTotalBalance === true;
+  const { summary: treasurySummary, error: treasuryError } =
+    useTreasurySummary(canViewTotalBalance);
   const [params, setParams] = useSearchParams();
 
   const apartmentId = profile?.apartmentId ?? null;
@@ -123,6 +129,13 @@ export function MyApartmentPage() {
           </>
         }
       />
+
+      {treasuryError ? (
+        <Banner tone="error" className="mb-4">{t(errorKey(treasuryError))}</Banner>
+      ) : null}
+      {canViewTotalBalance && treasurySummary ? (
+        <AvailableBalanceView summary={treasurySummary} className="mb-4" />
+      ) : null}
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard

@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { onSnapshot, setDoc } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
 import { settingsDocRef } from '@/firebase/collections';
 import { isFirebaseConfigured } from '@/firebase/config';
 import { errorKey } from '@/lib/errors';
@@ -33,12 +34,23 @@ interface SettingsValue {
 const SettingsContext = createContext<SettingsValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
+  const { firebaseUser, hasAccess } = useAuth();
+  const uid = firebaseUser?.uid ?? null;
   const [settings, setSettings] = useState<BuildingSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(isFirebaseConfigured);
   const [error, setError] = useState<TranslationKey | null>(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
+    // Settings are only readable by an active profile. Subscribing while signed
+    // out fails permanently, so wait for access and resubscribe per account.
+    if (!uid || !hasAccess) {
+      setSettings(DEFAULT_SETTINGS);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    setLoading(true);
     const unsubscribe = onSnapshot(
       settingsDocRef(),
       (snapshot) => {
@@ -52,7 +64,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       },
     );
     return unsubscribe;
-  }, []);
+  }, [uid, hasAccess]);
 
   const saveSettings = useCallback(async (next: BuildingSettings) => {
     await setDoc(settingsDocRef(), next, { merge: true });

@@ -35,6 +35,7 @@ function user(uid: string, patch: Partial<AppUser> = {}): AppUser {
     displayName: uid,
     phone: '+962791234567',
     role: 'resident',
+    privileges: { viewTotalBalance: false },
     active: true,
     apartmentId: null,
     createdAt: null,

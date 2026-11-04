@@ -38,6 +38,7 @@ export function ResidentsPage() {
   const [editName, setEditName] = useState('');
   const [editApartmentId, setEditApartmentId] = useState('');
   const [editActive, setEditActive] = useState(true);
+  const [editViewTotalBalance, setEditViewTotalBalance] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -80,6 +81,7 @@ export function ResidentsPage() {
     setEditName(user.displayName ?? '');
     setEditApartmentId(user.apartmentId ?? '');
     setEditActive(user.active);
+    setEditViewTotalBalance(user.privileges.viewTotalBalance);
     setEditError(null);
   };
 
@@ -92,6 +94,9 @@ export function ResidentsPage() {
         displayName: editName.trim() || formatPhoneNumber(editing.phone ?? ''),
         apartmentId: editApartmentId || null,
         ...(editing.uid !== profile?.uid ? { active: editActive } : {}),
+        ...(editing.role === 'resident'
+          ? { privileges: { viewTotalBalance: editViewTotalBalance } }
+          : {}),
       });
       setEditing(null);
       setNotice({ tone: 'success', text: t('residents.updated') });
@@ -413,6 +418,26 @@ export function ResidentsPage() {
               <option value="inactive">{t('residents.inactive')}</option>
             </Select>
           </Field>
+          {editing?.role === 'resident' ? (
+            <fieldset className="rounded-lg border border-slate-200 p-3">
+              <legend className="px-1 text-sm font-medium text-slate-700">
+                {t('residents.privileges')}
+              </legend>
+              <label
+                htmlFor="edit-resident-view-total-balance"
+                className="flex cursor-pointer items-start gap-2 text-sm text-slate-700"
+              >
+                <input
+                  id="edit-resident-view-total-balance"
+                  type="checkbox"
+                  checked={editViewTotalBalance}
+                  onChange={(event) => setEditViewTotalBalance(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600"
+                />
+                <span>{t('residents.privileges.viewTotalBalance')}</span>
+              </label>
+            </fieldset>
+          ) : null}
         </div>
       </Modal>
 

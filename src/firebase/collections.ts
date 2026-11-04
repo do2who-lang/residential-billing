@@ -83,6 +83,13 @@ export function userFromSnap(uid: string, data: Record<string, unknown>): AppUse
     phone: str(data.phone),
     displayName: str(data.displayName),
     role: data.role === 'admin' ? 'admin' : 'resident',
+    privileges: {
+      viewTotalBalance:
+        typeof data.privileges === 'object' &&
+        data.privileges !== null &&
+        'viewTotalBalance' in data.privileges &&
+        (data.privileges as { viewTotalBalance?: unknown }).viewTotalBalance === true,
+    },
     apartmentId: typeof data.apartmentId === 'string' && data.apartmentId ? data.apartmentId : null,
     active: bool(data.active, true),
     createdAt: toDate(data.createdAt),
@@ -95,6 +102,7 @@ export const userConverter: FirestoreDataConverter<AppUser> = {
       phone: user.phone,
       displayName: user.displayName,
       role: user.role,
+      privileges: user.privileges,
       apartmentId: user.apartmentId,
       active: user.active,
       createdAt: fromDate(user.createdAt),
@@ -299,6 +307,7 @@ export const paymentDocRef = (id: string) => doc(db, 'payments', id).withConvert
 // --------------------------------------------------------------------------
 export { db };
 export const userRawRef = (uid: string) => doc(db, 'users', uid);
+export const treasurySummaryRef = () => doc(db, 'treasury', 'summary');
 export const periodRawRef = (id: string) => doc(db, 'periods', id);
 export const paymentsRawCol = () => collection(db, 'payments');
 export const paymentRawRef = (id: string) => doc(db, 'payments', id);

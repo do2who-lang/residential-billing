@@ -9,7 +9,7 @@ import {
   temporaryPassword,
   TEMPORARY_PASSWORD_BYTES,
 } from '@/lib/phoneAuth';
-import type { Role } from '@/types/models';
+import type { Role, UserPrivileges } from '@/types/models';
 
 export interface CreateResidentInput {
   phone: string;
@@ -50,6 +50,7 @@ export async function createResident(input: CreateResidentInput): Promise<Reside
         phone,
         displayName: input.displayName.trim() || formatPhoneNumber(phone),
         role: 'resident' satisfies Role,
+        privileges: { viewTotalBalance: false } satisfies UserPrivileges,
         apartmentId: input.apartmentId,
         active: true,
         createdAt: Timestamp.now(),
@@ -71,14 +72,16 @@ export interface ResidentPatch {
   apartmentId?: string | null;
   active?: boolean;
   role?: Role;
+  privileges?: UserPrivileges;
 }
 
 export async function updateResident(uid: string, patch: ResidentPatch): Promise<void> {
-  const data: Record<string, string | boolean | null> = {};
+  const data: Record<string, string | boolean | null | UserPrivileges> = {};
   if (patch.displayName !== undefined) data.displayName = patch.displayName;
   if (patch.apartmentId !== undefined) data.apartmentId = patch.apartmentId;
   if (patch.active !== undefined) data.active = patch.active;
   if (patch.role !== undefined) data.role = patch.role;
+  if (patch.privileges !== undefined) data.privileges = patch.privileges;
   if (Object.keys(data).length === 0) return;
   await updateDoc(userRawRef(uid), data);
 }

@@ -66,6 +66,15 @@ describe('resident account deletion', () => {
     expect(mocks.setDoc).not.toHaveBeenCalled();
   });
 
+  it('updates a resident total-balance privilege on the existing profile', async () => {
+    await updateResident('resident-1', {
+      privileges: { viewTotalBalance: true },
+    });
+    expect(mocks.updateDoc).toHaveBeenCalledWith('user-reference', {
+      privileges: { viewTotalBalance: true },
+    });
+  });
+
   it('surfaces an update racing with deletion instead of recreating the profile', async () => {
     const error = new FirebaseError('not-found', 'deleted');
     mocks.updateDoc.mockRejectedValueOnce(error);
@@ -90,6 +99,7 @@ describe('resident account creation', () => {
       phone: '+962791234567',
       displayName: 'Resident',
       role: 'resident',
+      privileges: { viewTotalBalance: false },
       apartmentId: 'apt-1',
       active: true,
       createdAt: 'timestamp',

@@ -2,11 +2,16 @@
 
 export type Role = 'admin' | 'resident';
 
+export interface UserPrivileges {
+  viewTotalBalance: boolean;
+}
+
 export interface AppUser {
   uid: string;
   phone: string;
   displayName: string;
   role: Role;
+  privileges: UserPrivileges;
   /** Apartment this resident is linked to. Ad NULL for admins. */
   apartmentId: string | null;
   active: boolean;

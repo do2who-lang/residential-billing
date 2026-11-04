@@ -250,6 +250,8 @@ export const en = {
   'residents.credentialsHint': 'The resident should sign in and change this password.',
   'residents.apartment': 'Linked apartment',
   'residents.role': 'Role',
+  'residents.privileges': 'Privileges',
+  'residents.privileges.viewTotalBalance': 'Can view the building total balance',
   'residents.status': 'Status',
   'residents.active': 'Active',
   'residents.inactive': 'Inactive',
@@ -279,6 +281,7 @@ export const en = {
 
   // ------------------------------------------------------------- treasury
   'treasury.title': 'Available balance',
+  'treasury.syncError': 'Could not refresh the published building balance: {error}',
   'treasury.edit': 'Update cash',
   'treasury.breakdown': '{counted} counted on {date} + {since} collected since',
   'treasury.notSet':
@@ -299,7 +302,7 @@ export const en = {
   'settings.account': 'Your account',
   'settings.dataTitle': 'Firestore collections',
   'settings.dataHint':
-    'settings/building · users · apartments · services · periods/{month}/charges · payments',
+    'settings/building · users · apartments · services · periods/{month}/charges · payments · treasury/summary',
 
   'my.title': 'My apartment',
   'my.subtitle': 'Your charges and payments for {period}.',

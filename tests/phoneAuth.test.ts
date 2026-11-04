@@ -76,6 +76,7 @@ describe('displaying account identifiers', () => {
     phone: '+962791234567',
     displayName: '',
     role: 'resident',
+    privileges: { viewTotalBalance: false },
     apartmentId: null,
     active: true,
     createdAt: null,

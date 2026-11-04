@@ -108,5 +108,16 @@ service cloud.firestore {
         && request.resource.data.serviceId is string;
       allow update, delete: if isAdmin();
     }
+
+    // Residents with this explicit privilege can read the published total,
+    // without gaining access to payments belonging to other apartments.
+    match /treasury/{documentId} {
+      allow get: if isAdmin() || (
+        isActiveProfile()
+        && profile().get('privileges', {}).get('viewTotalBalance', false) == true
+      );
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
   }
 }

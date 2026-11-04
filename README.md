@@ -274,7 +274,7 @@ deep links such as `/periods/2026-01` and `/apartments/abc/print` work.
 ```
 settings/building            { name, address, currency, defaultLang,
                                cashOnHandMinor, cashCountedAt }
-users/{uid}                  { phone, displayName, role, apartmentId, active, createdAt }
+users/{uid}                  { phone, displayName, role, privileges, apartmentId, active, createdAt }
 apartments/{apartmentId}     { name, floor, number, ownerName, phone, email, archived, order, createdAt }
 services/{serviceId}         { nameEn, nameAr, archived, order, createdAt }
 periods/{periodId}           { year, month, status: draft|open|closed, notes, createdAt, closedAt,
@@ -283,6 +283,8 @@ periods/{periodId}/charges/{apartmentId}
                              { apartmentId, amountsMinor: { [serviceId]: fils } }
 payments/{paymentId}         { periodId, apartmentId, serviceId, amountMinor,
                                paidAt, method: cash|bank|other, note, recordedBy, createdAt }
+treasury/summary             { availableMinor, countedMinor, countedAt, collectedSinceMinor,
+                               paymentCount, spentMinor, expenseCount, unset, updatedAt }
 ```
 
 All money is stored as **integer minor units** (fils, `1 JOD = 1000`), never as a
@@ -309,6 +311,12 @@ available = cashOnHandMinor + Σ (payments recorded after cashCountedAt)
 
 This means you can adopt the app today with zero history: just enter the cash on
 hand and carry on recording payments.
+
+An admin can grant a resident the **Can view the building total balance**
+privilege in **Residents & access → Edit resident**. The resident then sees the
+published total in **My apartment**; this does not grant access to other
+apartments' payments. The summary is refreshed while an admin is signed in to
+the app, so it may be out of date while no admin session is active.
 
 ## Typing an amount marks it paid
 

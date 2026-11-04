@@ -61,9 +61,18 @@ async function seed(): Promise<void> {
     const batch: Array<[string, Record<string, unknown>]> = [
       [`users/${ADMIN}`, { role: 'admin', active: true, apartmentId: null, phone: '+962791234567' }],
       [`users/${RESIDENT_1}`, { role: 'resident', active: true, apartmentId: 'apt-1' }],
-      [`users/${RESIDENT_2}`, { role: 'resident', active: true, apartmentId: 'apt-2' }],
+      [
+        `users/${RESIDENT_2}`,
+        {
+          role: 'resident',
+          active: true,
+          apartmentId: 'apt-2',
+          privileges: { viewTotalBalance: true },
+        },
+      ],
       [`users/${INACTIVE}`, { role: 'resident', active: false, apartmentId: 'apt-1' }],
       ['settings/building', { name: 'My Building', currency: 'JOD', defaultLang: 'en' }],
+      ['treasury/summary', { availableMinor: 12345, unset: false }],
       ['apartments/apt-1', { name: 'Apartment 1', archived: false, order: 0 }],
       ['apartments/apt-2', { name: 'Apartment 2', archived: false, order: 1 }],
       ['services/water', { nameEn: 'Water', nameAr: 'ماء', archived: false, order: 0 }],
@@ -316,6 +325,19 @@ describe('resident', () => {
 
     await assertFails(getDocs(collection(resident1Db(), 'payments')));
     await assertFails(getDoc(doc(resident1Db(), 'payments/pay-2')));
+  });
+
+  it('reads the published total only when granted the privilege', async () => {
+    await assertFails(getDoc(doc(resident1Db(), 'treasury/summary')));
+    const db = resident2Db();
+    expect((await assertSucceeds(getDoc(doc(db, 'treasury/summary')))).data()?.availableMinor)
+      .toBe(12345);
+    await assertFails(getDocs(collection(db, 'treasury')));
+    await assertFails(getDocs(collection(db, 'payments')));
+    await assertFails(setDoc(doc(db, 'treasury/summary'), { availableMinor: 0 }));
+    await assertFails(
+      updateDoc(doc(db, 'users', RESIDENT_2), { 'privileges.viewTotalBalance': false }),
+    );
   });
 
   it('cannot write building data', async () => {

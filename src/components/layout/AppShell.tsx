@@ -5,6 +5,7 @@ import { useI18n } from '@/context/I18nContext';
 import { useSettings } from '@/context/SettingsContext';
 import { cn } from '@/lib/cn';
 import { ProfileMenu } from '@/components/layout/ProfileMenu';
+import { TreasuryPublisher } from '@/components/treasury/TreasuryPublisher';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { TranslationKey } from '@/lib/i18n';
 
@@ -223,6 +224,7 @@ export function AppShell() {
         </header>
 
         <main className="mx-auto w-full max-w-[88rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {isAdmin ? <TreasuryPublisher /> : null}
           <Outlet />
         </main>
       </div>

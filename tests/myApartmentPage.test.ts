@@ -4,12 +4,15 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { translate, type Lang, type TranslationKey } from '@/lib/i18n';
 import type { Apartment, Payment, Period, Service } from '@/types/models';
+import type { TreasurySummary } from '@/lib/treasury';
 
 const state = vi.hoisted(() => ({
   lang: 'en' as Lang,
   periods: [] as Period[],
   amountsByPeriod: {} as Record<string, Record<string, number>>,
   payments: [] as Payment[],
+  canViewTotalBalance: false,
+  treasurySummary: null as TreasurySummary | null,
 }));
 
 const apartment: Apartment = {
@@ -45,6 +48,12 @@ vi.mock('@/hooks/usePayments', () => ({
   usePaymentsForApartment: () => ({ payments: state.payments }),
   usePaymentsForPeriod: () => ({ payments: [] }),
 }));
+vi.mock('@/hooks/useTreasurySummary', () => ({
+  useTreasurySummary: () => ({
+    summary: state.canViewTotalBalance ? state.treasurySummary : null,
+    error: null,
+  }),
+}));
 vi.mock('@/hooks/usePeriods', () => ({
   usePeriods: () => ({
     periods: state.periods,
@@ -55,7 +64,12 @@ vi.mock('@/hooks/useServices', () => ({ useServices: () => ({ services }) }));
 vi.mock('@/hooks/useApartments', () => ({ useApartments: () => ({ apartments: [] }) }));
 vi.mock('@/hooks/useCharges', () => ({ useCharges: () => ({ charges: {}, loading: false }) }));
 vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ profile: { apartmentId: '1' } }),
+  useAuth: () => ({
+    profile: {
+      apartmentId: '1',
+      privileges: { viewTotalBalance: state.canViewTotalBalance },
+    },
+  }),
 }));
 vi.mock('@/context/SettingsContext', () => ({
   useSettings: () => ({ settings: { name: 'Building', address: '', currency: 'JOD' } }),
@@ -83,6 +97,17 @@ function tableTotals(markup: string) {
 
 beforeEach(() => {
   state.lang = 'en';
+  state.canViewTotalBalance = false;
+  state.treasurySummary = {
+    availableMinor: 12345,
+    countedMinor: 10000,
+    countedAt: new Date(2026, 0, 15),
+    collectedSinceMinor: 3345,
+    paymentCount: 2,
+    spentMinor: 1000,
+    expenseCount: 1,
+    unset: false,
+  };
   state.periods = [2, 1].map((month) => ({
     id: `2026-0${month}`,
     year: 2026,
@@ -116,6 +141,19 @@ beforeEach(() => {
 });
 
 describe('resident dashboard period filter', () => {
+  it('shows the building balance only when the resident has the privilege', () => {
+    const hiddenMarkup = renderPage('/my', createElement(MyApartmentPage));
+    expect(hiddenMarkup).not.toContain('Available balance');
+
+    state.canViewTotalBalance = true;
+    const visibleMarkup = renderPage('/my', createElement(MyApartmentPage));
+    expect(visibleMarkup).toContain('Available balance');
+    expect(visibleMarkup).toContain('12.345');
+    expect(visibleMarkup).toContain('counted on 2026-01-15');
+    expect(visibleMarkup).toContain('paid out on shared expenses');
+    expect(visibleMarkup).not.toContain('Update cash');
+  });
+
   it('offers All time while keeping the newest month selected by default', () => {
     const markup = renderPage('/my', createElement(MyApartmentPage));
     expect(markup).toContain('<option value="all">All time</option>');

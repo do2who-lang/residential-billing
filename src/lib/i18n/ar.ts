@@ -250,6 +250,8 @@ export const ar: Partial<Record<TranslationKey, string>> = {
   'residents.credentialsHint': 'على الساكن تسجيل الدخول وتغيير كلمة المرور هذه.',
   'residents.apartment': 'الشقة المرتبطة',
   'residents.role': 'الدور',
+  'residents.privileges': 'الصلاحيات',
+  'residents.privileges.viewTotalBalance': 'يمكنه عرض الرصيد الإجمالي للمبنى',
   'residents.status': 'الحالة',
   'residents.active': 'نشط',
   'residents.inactive': 'معطّل',
@@ -279,6 +281,7 @@ export const ar: Partial<Record<TranslationKey, string>> = {
 
   // ------------------------------------------------------------- treasury
   'treasury.title': 'الرصيد المتوفر',
+  'treasury.syncError': 'تعذّر تحديث رصيد المبنى المنشور: {error}',
   'treasury.edit': 'تحديث النقد',
   'treasury.breakdown': '{counted} مجرودة بتاريخ {date} + {since} محصّلة بعدها',
   'treasury.notSet':
@@ -299,7 +302,7 @@ export const ar: Partial<Record<TranslationKey, string>> = {
   'settings.account': 'حسابك',
   'settings.dataTitle': 'مجموعات Firestore',
   'settings.dataHint':
-    'settings/building · users · apartments · services · periods/{month}/charges · payments',
+    'settings/building · users · apartments · services · periods/{month}/charges · payments · treasury/summary',
 
   'my.title': 'شقتي',
   'my.subtitle': 'مستحقاتك ودفعاتك لشهر {period}.',
